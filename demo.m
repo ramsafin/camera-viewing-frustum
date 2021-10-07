@@ -36,7 +36,7 @@ Camera.T_cam_optical = rpy2tr(-90, 0, -90) * Camera.T_cam_ref;
 % transform from the reference to optical frame
 Camera.T_inv_cam_optical = inv(Camera.T_cam_optical);
 
-%% [Required] Constants
+%% [Required] Pattern properties
 
 Pattern.name = "Checkerboard";
 Pattern.dim = [297, 210] * 1e-3;
@@ -227,8 +227,8 @@ hold on;
 
 % plot a calibration pattern
 % Note: pattern plane is orthogonal to the Z-axis of the optical frame
-T_pattern_ref = rt2tr(rpy2r(0, 0, 0), [0 0 0.1]);
-plot_pattern3d(Pattern, T_pattern_ref, 2);
+T_pattern = rt2tr(rpy2r(0, 0, 0), [3 0.5 1]);
+plot_pattern3d(Pattern, T_pattern, 2);
 
 % plot camera poses (as pyramids with axes)
 num_cameras = 1;
@@ -252,62 +252,49 @@ zlabel('Z (m)', Opts.axis_text{:});
 hold off;
 
 % cleanup
-clear num_cameras idx R T_pattern_ref T;
+clear num_cameras idx R T_pattern T;
 
-%% Sample 6D poses (in trapezoid)
+%% Sampling 6D poses in the viewing frustum
 
-% a) generate view distances of trapezoid (in meters)
-h_start = 0.5;
-h_delta = 1.0;
-h_step = 0.1;
+view_dist = 0.5:0.5:1;  % meters
+density = 10000;        % samples per meter squared
 
-view_distances = h_start:h_step:(h_start + h_delta); % meters
-clear h_start h_delta h_step;
+samples = sample_frustum3d(Camera, view_dist, density, Pattern);
 
-% b) sample 3D position points at each view distance
-PATTERN_DIM = [297, 210] * 1e-3;
+% There are 3 choices for sub-sampling:
+% 1. Clustering + uniform sampling
+% 2. Clustering
+% 3. Uniform sampling
 
-% number of samples per distance (per trapezoid slice)
-num_samples = 1000; % Note: can be computed based on view distance
+% clusterting
+num_samples = min(500, size(samples, 1));
 
-samples = zeros(size(view_distances, 2) * num_samples, 3);
-
-for i = 1:size(view_distances, 2)
-    h = view_distances(i);
-    
-    [~, ref_cam_base] = ...
-        compute_frustum(hfov_deg, h, aspect_ratio, T_cam_optical);
-    
-    opt_cam_base = transform_points3d(ref_cam_base, inv(T_cam_optical));
-    
-    opt_cam_base = c_space(opt_cam_base, PATTERN_DIM);
-    
-    h_samples = sample_frustum_plane(opt_cam_base, num_samples);
-    
-    samples(((i - 1) * num_samples + 1):(i * num_samples), :) = ...
-        transform_points3d(h_samples, T_cam_optical);
-end
-
-clear i h h_samples;
-
-num_clusters = 200;
-
-[cluster_ids, cluster_centroids] = kmeans(samples, ...
-    num_clusters, ...
+[~, samples] = kmeans(samples, num_samples, ...
     'Distance',  'sqeuclidean', ...
     'Display', 'final', ...
     'Replicates', 50, ...
-    'MaxIter', 500);
+    'MaxIter', 100);
 
-%% choose N random samples (uniform probability)
-num_sub_samples = 50;
+% uniform sampling
+num_samples = min(50, size(samples, 1));
+samples = samples(randsample(size(samples, 1), num_samples), :);
 
-sub_clusters = cluster_centroids(randsample(size(cluster_centroids, 1), num_sub_samples), :);
+% cleanup
+clear view_dist density num_samples;
+
+%% Sample 3D orientation (experimental)
+
+rpy = zeros(size(samples, 1), 3);
+
+
+
+
+%% Sample orientation
 
 % sample RPY (w.r.t. the camera reference frame)
 rpy_clusters = ... 
     sample_optical_rpy(transform_points3d(sub_clusters, inv(T_cam_optical)), ...
-                                          [0, 45], [0, 45], [0, 0]);
+                                          [5, 45], [5, 45], [0, 0]);
                                       
 % Save as CSV
 csv_samples = zeros(num_sub_samples, 6);
