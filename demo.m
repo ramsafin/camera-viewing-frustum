@@ -2,7 +2,8 @@
 
 clear all;
 
-addpath(genpath('plotting'), genpath('sampling'), genpath('data'));
+addpath(genpath('plotting'), genpath('sampling'), ...
+        genpath('frustum'), genpath('utility'));
 
 %% [Required] Plotting options
 
@@ -157,7 +158,7 @@ disp(['Clustering factor (the closer to 1 the better): ', ...
 clear view_dist ref_cam_base optical_cam_base c_optical_cam_base ...
       num_samples samples num_clusters cluster_ids clustering_factor silh
 
-%% Plot the clusters of sample points
+%% Plot the sample points' clusters 
 
 view_dist = 5; % meters
 [ref_cam_origin, ref_cam_base] = compute_frustum(Camera, view_dist);
@@ -195,10 +196,8 @@ plot_image_axes(ref_cam_base);
 
 % plot cluster centers
 scatter3(ref_clusters(:, 1), ref_clusters(:, 2), ref_clusters(:, 3), ...
-         10, 'filled', ...
-         'Marker', 'o', ...
-         'MarkerEdgeColor', 'k', ...
-         'MarkerFaceColor', [0 .75 .75]);
+         10, 'filled', 'Marker', 'o', ...
+         'MarkerEdgeColor', 'k', 'MarkerFaceColor', [0 .75 .75]);
  
 % figure settings
 grid on;
@@ -218,7 +217,7 @@ clear view_dist ref_cam_origin ref_cam_base ...
       num_clusters optical_clusters ref_clusters ...
       num_samples optical_samples;
 
-%% Plot a calibration pattern and camera poses (3D)
+%% Plot a calibration template and camera poses (3D)
 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
@@ -228,7 +227,8 @@ hold on;
 
 % plot a calibration pattern
 % Note: pattern plane is orthogonal to the Z-axis of the optical frame
-plot_pattern3d(Pattern, rt2tr(rpy2r(0, 0, 0), [0 0 0.1]), 2);
+T_pattern_ref = rt2tr(rpy2r(0, 0, 0), [0 0 0.1]);
+plot_pattern3d(Pattern, T_pattern_ref, 2);
 
 % plot camera poses (as pyramids with axes)
 num_cameras = 1;
@@ -252,7 +252,7 @@ zlabel('Z (m)', Opts.axis_text{:});
 hold off;
 
 % cleanup
-clear num_cameras idx R T;
+clear num_cameras idx R T_pattern_ref T;
 
 %% Sample 6D poses (in trapezoid)
 
