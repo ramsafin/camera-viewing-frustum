@@ -5,7 +5,7 @@ clear all;
 addpath(genpath('plotting'), genpath('sampling'), ...
         genpath('frustum'), genpath('utility'));
 
-%% [Required] Plotting options
+%% [Required] Options
 
 Opts.axis_text = {'FontSize', 14, 'FontWeight', 'bold', 'Color', 'k'};
 
@@ -13,6 +13,9 @@ Opts.fig = {'Color', 'white', 'WindowStyle', 'docked'};
 
 Opts.frame = {'thick', 2, 'rgb', 'framelabeloffset', [0.1, 0.1], ...
     'text_opts', {'FontSize', 13, 'FontWeight', 'bold'}};
+
+Opts.kmeans = {'Distance',  'sqeuclidean', 'Display', 'off', ...
+    'Replicates', 50, 'MaxIter', 300, 'OnlinePhase', 'off'};
 
 %% [Required] Camera properties (camera model)
 
@@ -125,7 +128,7 @@ clear view_dist pattern_dim num_samples samples ref_cam_base ...
 %% Clustering sample points (2D)
 
 % compute the frustum points in the camera reference frame
-view_dist = 5; % meters
+view_dist = 1; % meters
 [~, ref_cam_base] = compute_frustum(Camera, view_dist);
 
 optical_cam_base = transform_points3d(ref_cam_base, ...
@@ -135,28 +138,27 @@ optical_cam_base = transform_points3d(ref_cam_base, ...
 c_optical_cam_base = c_space(optical_cam_base, Pattern.dim);
 
 % generate frustum plane point samples
-num_samples = 1000;
+num_samples = 1200;
 samples = inv_norm2d(c_optical_cam_base, num_samples);
 
 % compute clusters of 2D points (on the frustum plane)
-num_clusters = 200;
+num_clusters = 50;
 
-[cluster_ids, ~] = kmeans(samples, num_clusters, ...
-    'Distance',  'sqeuclidean', ...
-    'Display', 'final', ...
-    'Replicates', 100, ...
-    'MaxIter', 500);
+[cluster_ids, clusters] = kmeans(samples, num_clusters, Opts.kmeans{:});
+
+avg_dist(clusters, zeros(1, 3), [0 0 1])
 
 % (optional) display the distributed clusters error
-[silh, ~] = silhouette(samples, cluster_ids, 'sqeuclidean');
-clustering_factor = mean(silh);
+% [silh, ~] = silhouette(samples, cluster_ids, 'sqeuclidean');
 
-disp(['Clustering factor (the closer to 1 the better): ', ...
-      num2str(clustering_factor)]);
+% factor = mean(silh);
+% disp(['Clustering factor (the closer to 1 the better): ', ...
+%      num2str(factor)]);
 
 % cleanup
 clear view_dist ref_cam_base optical_cam_base c_optical_cam_base ...
-      num_samples samples num_clusters cluster_ids clustering_factor silh
+      num_samples samples num_clusters clusters cluster_ids ...
+      factor silh;
 
 %% Plot the sample points' clusters 
 
@@ -172,15 +174,11 @@ num_samples = 1000;
 optical_samples = inv_norm2d(c_optical_cam_base, num_samples);
 
 num_clusters = 50;
-[~, optical_clusters] = kmeans(optical_samples, ...
-    num_clusters, ...
-    'Distance',  'sqeuclidean', ...
-    'Display', 'final', ...
-    'Replicates', 100, ...
-    'MaxIter', 500);
+
+[~, clusters] = kmeans(optical_samples, num_clusters, Opts.kmeans{:});
 
 % plot the centroids of the clusters
-ref_clusters = transform_points3d(optical_clusters, Camera.T_cam_optical);
+ref_clusters = transform_points3d(clusters, Camera.T_cam_optical);
 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
@@ -214,7 +212,7 @@ hold off;
 
 clear view_dist ref_cam_origin ref_cam_base ...
       optical_cam_base c_optical_cam_base ...
-      num_clusters optical_clusters ref_clusters ...
+      num_clusters clusters ref_clusters ...
       num_samples optical_samples;
 
 %% Plot a calibration template and camera poses (3D)
@@ -227,17 +225,19 @@ hold on;
 
 % plot a calibration pattern
 % Note: pattern plane is orthogonal to the Z-axis of the optical frame
-T_pattern = rt2tr(rpy2r(0, 0, 0), [3 0.5 1]);
+T_pattern = rt2tr(rpy2r(0, 0, 0), [0.75 0 1]);
 plot_pattern3d(Pattern, T_pattern, 2);
 
 % plot camera poses (as pyramids with axes)
 num_cameras = 1;
 
 for idx = 1:num_cameras
-    R = roty(0);
-    T = rt2tr(R, [1, 0.5, 1]);
-    plot_camera3d(idx, Camera, 0.3, T);
+    R = rotz(180);
+    T = rt2tr(R, [3, 0, 1]);
+    plot_camera3d(idx, Camera, 0.5, T);
 end
+
+clear idx R T;
 
 % view setiings
 view([45 30]);
@@ -252,103 +252,93 @@ zlabel('Z (m)', Opts.axis_text{:});
 hold off;
 
 % cleanup
-clear num_cameras idx R T_pattern T;
+clear num_cameras T_pattern;
 
 %% Sampling 6D poses in the viewing frustum
 
-view_dist = 0.5:0.5:1;  % meters
-density = 10000;        % samples per meter squared
+% === How does it work? ===
+% Viewing frustum is a trapezoid with 2 bases located 
+% at different distances from the camera's optical center.
+% 
+% Sampling in the trapezoid volume involves:
+% 1. unifrom samplig the distance h of points from the optical center (Z-axis)
+% 2. 2D inverse Gaussian sampling by rejection on the trapezoid's base 
+%    located at distance h from the optical center
 
-samples = sample_frustum3d(Camera, view_dist, density, Pattern);
+SAMPLING_DENSITY = 100; % samples per meter squared
 
+% camera view distances: from, to, number of samples
+dist_samples = unifrnd(0.5, 0.75, [1, 250]);
+
+samples = sample_frustum3d(Camera, dist_samples, ...
+                           SAMPLING_DENSITY, Pattern);
+
+disp(['Number of samples: ', num2str(size(samples, 1))]);
+
+% =====================================
 % There are 3 choices for sub-sampling:
 % 1. Clustering + uniform sampling
 % 2. Clustering
 % 3. Uniform sampling
 
 % clusterting
-num_samples = min(500, size(samples, 1));
+NUM_CLUSTERS = 500;
 
-[~, samples] = kmeans(samples, num_samples, ...
-    'Distance',  'sqeuclidean', ...
-    'Display', 'final', ...
-    'Replicates', 50, ...
-    'MaxIter', 100);
+disp('Starting K-means ...');
 
-% uniform sampling
-num_samples = min(50, size(samples, 1));
-samples = samples(randsample(size(samples, 1), num_samples), :);
+tic
+[~, samples] = kmeans(samples, NUM_CLUSTERS, Opts.kmeans{:}, ...
+    'Replicates', 100, 'MaxIter', 300);
+toc
+
+disp('K-means finished!');
+
+avg_d = avg_dist(samples, zeros(1, 3), [1 0 0]);
+disp(['Avg. distance of points to the X-axis: ', num2str(avg_d)]);
 
 % cleanup
-clear view_dist density num_samples;
+clear SAMPLING_DENSITY NUM_CLUSTERS dist_samples avg_d;
 
-%% Sample 3D orientation (experimental)
+%% Uniform sampling over a frustum's volume
+NUM_SUB_SAMPLES = 50;
 
-rpy = zeros(size(samples, 1), 3);
+% generate random sub-sample indices
+indices = randsample(1:size(samples, 1), NUM_SUB_SAMPLES);
 
+sub_samples = samples(indices, :);
 
+avg_d = avg_dist(sub_samples, zeros(1, 3), [1 0 0]);
+disp(['Avg. distance of points to the X-axis: ', num2str(avg_d)]);
 
+% cleanup
+clear NUM_SUB_SAMPLES indices avg_d;
 
-%% Sample orientation
+%% [Experimental] Sample 3D orientation
+rpy = zeros(size(sub_samples, 1), 3);
 
-% sample RPY (w.r.t. the camera reference frame)
-rpy_clusters = ... 
-    sample_optical_rpy(transform_points3d(sub_clusters, inv(T_cam_optical)), ...
-                                          [5, 45], [5, 45], [0, 0]);
-                                      
-% Save as CSV
-csv_samples = zeros(num_sub_samples, 6);
-csv_samples(:, 1:3) = round(sub_clusters, 3);
-csv_samples(:, 4:6) = round(deg2rad(rpy_clusters), 3);
+%% [Experimental] Plotting 
+figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
-writematrix(csv_samples, 'data/poses6D_0.5_1.5m_50_5.csv', ...
-    'FileType', 'text', ...
-    'Encoding', 'UTF-8');
-
-%% plot
-figure('Name', 'Clustered frustum samples', ...
-       'Color', 'white', ...
-       'WindowStyle', 'docked');
-
-% plot the camera optical frame
-trplot(T_cam_optical, ...
-    'length', view_distances(1) * 0.8, ...
-    'thick', 2, ...
-    'rgb', ...
-    'frame', 'C_{opt}', ...
-    'text_opts', {'FontSize', 13, 'FontWeight', 'bold'}, ...
-    'framelabeloffset', [0.1, 0.1]);
+% camera optical frame
+trplot(Camera.T_cam_optical, Opts.frame{:}, 'frame', 'C_{opt}');
 
 hold on;
 
 % plot the near and far planes of the trapezoid
-[near_origin, near_base] = ...
-        compute_frustum(hfov_deg, view_distances(1), ...
-        aspect_ratio, T_cam_optical);
-    
-[far_origin, far_base] = ...
-        compute_frustum(hfov_deg, ...
-        unique(max(view_distances)), ...
-        aspect_ratio, T_cam_optical);
+[~, near_base] = compute_frustum(Camera, 0.5);
+[far_origin, far_base] = compute_frustum(Camera, 1);
 
-%plot_frustum(near_origin, near_base);
-plot_frustum(far_origin, far_base);
-
-% plot frustum plane's XY axes
+plot_frustum3d(far_origin, far_base);
 plot_image_axes(far_base);
 
-% plot the near plane in red color
 patch(near_base(:, 1), near_base(:, 2), near_base(:, 3), 1, ...
-    'FaceColor', '#A2142F', ...
-    'FaceAlpha', 0.5, ...
-    'EdgeColor', '#A2142F', ...
-    'EdgeAlpha', 0.5, ...
+    'FaceColor', '#A2142F', 'FaceAlpha', 0.5, ...
+    'EdgeColor', '#A2142F', 'EdgeAlpha', 0.5, ...
     'LineWidth', 1);
 
 % plot poses as dots
-scatter3(sub_clusters(:, 1), ...
-         sub_clusters(:, 2), ...
-         sub_clusters(:, 3), ...
+
+scatter3(sub_samples(:, 1), sub_samples(:, 2), sub_samples(:, 3), ...
          10, 'filled', ...
          'Marker', 'o', ...
          'MarkerEdgeColor', 'k', ...
@@ -357,27 +347,48 @@ scatter3(sub_clusters(:, 1), ...
 % plot poses as trapezoids
 cam_height = 0.12;
 
-[cam_origin, cam_base] = ... 
-    compute_frustum(hfov_deg, cam_height, aspect_ratio, T_cam_ref);
-
-for idx = 1:size(sub_clusters, 1)
+for idx = 1:size(samples, 1)
     % Note: pose correction of the camera w.r.t. reference frame
-    location = sub_clusters(idx, :);
-    T = rt2tr(rpy2r(rpy_clusters(idx, :)), location) * T_cam_optical;
+    % location = samples(idx, :);
+    % T = rt2tr(rpy2r(samples(idx, :)), location) * T_cam_optical;
     % plot_camera_pose(cam_origin, cam_base, idx, cam_height, T);
 end
 
-% trplot(rt2tr(rpy2r(rpy_clusters(1, :)), sub_clusters(1, :)), 'frame', 'Loc');
-
 % figure settings
 grid on;
-view([-30 20]);
-title('Clustered frustum points');
-
-axis([-1, 1, -1, 1, -1, 1] .* unique(max(view_distances)) * 1.2);
+view([-90 90]);
+title('Pattern poses 3D');
+axis([-1, 1, -1, 1, -1, 1] .* 1.2);
 
 set(gca, 'FontSize', 13);
-xlabel('X (m)', axis_text_opts{:});
-ylabel('Y (m)', axis_text_opts{:});
+xlabel('X (m)', Opts.axis_text{:});
+ylabel('Y (m)', Opts.axis_text{:});
 
 hold off;
+
+clear near_base far_origin far_base cam_height idx rpy;
+
+%% [Draft] Sample orientation
+
+% sample RPY (w.r.t. the camera reference frame)
+rpy_clusters = ... 
+    sample_optical_rpy(transform_points3d(sub_clusters, inv(T_cam_optical)), ...
+                                          [5, 45], [5, 45], [0, 0]);
+
+%% [Draft] Output sampled calibration template poses
+
+% File name structure:
+% 1. poses
+% 2. view distance range
+% 3. number of samples
+% 4. index
+% Ex.: poses_0.5_to_0.75cm_200_1.csv
+
+% save as CSV
+csv_samples = zeros(num_sub_samples, 6);
+csv_samples(:, 1:3) = round(sub_clusters, 3);
+csv_samples(:, 4:6) = round(deg2rad(rpy_clusters), 3);
+
+writematrix(csv_samples, 'data/poses6D_0.5_1.5m_50_5.csv', ...
+    'FileType', 'text', ...
+    'Encoding', 'UTF-8');
