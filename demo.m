@@ -264,6 +264,9 @@ clear num_cameras T_pattern;
 % 1. unifrom samplig the distance h of points from the optical center (Z-axis)
 % 2. 2D inverse Gaussian sampling by rejection on the trapezoid's base 
 %    located at distance h from the optical center
+%
+% The viewing distance is chosen empirically, such that all the calibration
+% template points are observable and the distance to the camera is minimal.
 
 SAMPLING_DENSITY = 100; % samples per meter squared
 
@@ -314,7 +317,33 @@ disp(['Avg. distance of points to the X-axis: ', num2str(avg_d)]);
 clear NUM_SUB_SAMPLES indices avg_d;
 
 %% [Experimental] Sample 3D orientation
+% ======================================
+% Rules:
+% 1. The pattern must not be || to the image axes (+/- 5 degrees threshold)
+
 rpy = zeros(size(sub_samples, 1), 3);
+
+
+%% Q: cannot understand how this sequence helps to spread the angles
+N = 16; % number of samples
+S = zeros(1, 16);
+p = 0;  % power coefficient
+
+for i=1:2:size(S, 2)
+    S(i) = 1/4 * (1 / power(2, p));
+    
+    if i + 1 <= N
+        S(i + 1) = 3/4 * (1 / power(2, p));
+    end
+
+    p = p + 1;
+end
+
+S = flip(S);  % max ... min => min ... max
+disp(S);
+
+clear i p offset S N;
+
 
 %% [Experimental] Plotting 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
