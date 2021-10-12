@@ -23,8 +23,10 @@ function [samples] = inv_norm1d(range, mean, stddev, num_samples)
         x = unifrnd(range(1), range(2));
         
         if exp(coeff * power(x - mean, 2)) < unifrnd(0, 1)
-            samples(num_remained) = x;
-            num_remained = num_remained - 1;
+            if any(samples ~= x)
+                samples(num_remained) = x;
+                num_remained = num_remained - 1;
+            end
         end
     end
 end

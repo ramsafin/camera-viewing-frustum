@@ -6,8 +6,6 @@ function [RPY] = unique_rpy(num_samples, limits)
     
     [R, P, Y] = meshgrid(S, S, S);
     Cartesian = unique([R(:), P(:), Y(:)], 'rows');
-    size(Cartesian, 1)
-    num_samples
     
     indices = randsample(1:size(Cartesian, 1), num_samples);
     RPY = Cartesian(indices, :);
