@@ -15,7 +15,7 @@ function [dist] = avg_dist(points, v1, v2)
     v = v1 - v2;
     
     for idx=1:dist_num
-        dist_sum = dist_sum + norm(cross(v, points(idx, :))) / norm(v);
+        dist_sum = dist_sum + norm(cross(v, points(idx, 1:3))) / norm(v);
     end
 
     dist = dist_sum / dist_num;

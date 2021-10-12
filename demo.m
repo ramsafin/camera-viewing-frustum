@@ -144,9 +144,12 @@ samples = inv_norm2d(c_optical_cam_base, num_samples);
 % compute clusters of 2D points (on the frustum plane)
 num_clusters = 50;
 
-[cluster_ids, clusters] = kmeans(samples, num_clusters, Opts.kmeans{:});
+disp('Starting K-means ...');
+tic
+[~, clusters] = kmeans(samples, num_clusters, Opts.kmeans{:});
+toc
 
-avg_dist(clusters, zeros(1, 3), [0 0 1])
+avg_dist(clusters, zeros(1, 3), [0 0 1]);
 
 % (optional) display the distributed clusters error
 % [silh, ~] = silhouette(samples, cluster_ids, 'sqeuclidean');
@@ -254,7 +257,7 @@ hold off;
 % cleanup
 clear num_cameras T_pattern;
 
-%% Sampling 6D poses in the viewing frustum
+%% Sampling 3D poses in the viewing frustum
 
 % === How does it work? ===
 % Viewing frustum is a trapezoid with 2 bases located 
@@ -268,36 +271,40 @@ clear num_cameras T_pattern;
 % The viewing distance is chosen empirically, such that all the calibration
 % template points are observable and the distance to the camera is minimal.
 
-SAMPLING_DENSITY = 100; % samples per meter squared
+SAMPLING_DENSITY = 50; % samples per meter squared
 
 % camera view distances: from, to, number of samples
 dist_samples = unifrnd(0.5, 0.75, [1, 250]);
 
-samples = sample_frustum3d(Camera, dist_samples, ...
-                           SAMPLING_DENSITY, Pattern);
+poses = sample_frustum3d(Camera, Pattern, dist_samples, ...
+                           SAMPLING_DENSITY, [3, 60, 5]);
 
-disp(['Number of samples: ', num2str(size(samples, 1))]);
+disp(['Number of poses: ', num2str(size(poses, 1))]);
 
 % =====================================
-% There are 3 choices for sub-sampling:
+% There are multiple choices for sub-sampling:
 % 1. Clustering + uniform sampling
 % 2. Clustering
 % 3. Uniform sampling
+% 4. Unique tolerance: uniquetol(samples, tolerance, 'ByRows', true)
 
 % clusterting
+
 NUM_CLUSTERS = 500;
 
 disp('Starting K-means ...');
 
 tic
-[~, samples] = kmeans(samples, NUM_CLUSTERS, Opts.kmeans{:}, ...
+[~, poses] = kmeans(poses, NUM_CLUSTERS, Opts.kmeans{:}, ...
     'Replicates', 100, 'MaxIter', 300);
 toc
 
 disp('K-means finished!');
 
-avg_d = avg_dist(samples, zeros(1, 3), [1 0 0]);
+avg_d = avg_dist(poses(:, 1:3), zeros(1, 3), [1 0 0]);
 disp(['Avg. distance of points to the X-axis: ', num2str(avg_d)]);
+
+%}
 
 % cleanup
 clear SAMPLING_DENSITY NUM_CLUSTERS dist_samples avg_d;
@@ -306,44 +313,15 @@ clear SAMPLING_DENSITY NUM_CLUSTERS dist_samples avg_d;
 NUM_SUB_SAMPLES = 50;
 
 % generate random sub-sample indices
-indices = randsample(1:size(samples, 1), NUM_SUB_SAMPLES);
+indices = randsample(1:size(poses, 1), NUM_SUB_SAMPLES);
 
-sub_samples = samples(indices, :);
+sub_samples = poses(indices, :);
 
 avg_d = avg_dist(sub_samples, zeros(1, 3), [1 0 0]);
 disp(['Avg. distance of points to the X-axis: ', num2str(avg_d)]);
 
 % cleanup
 clear NUM_SUB_SAMPLES indices avg_d;
-
-%% [Experimental] Sample 3D orientation
-% ======================================
-% Rules:
-% 1. The pattern must not be || to the image axes (+/- 5 degrees threshold)
-
-rpy = zeros(size(sub_samples, 1), 3);
-
-
-%% Q: cannot understand how this sequence helps to spread the angles
-N = 16; % number of samples
-S = zeros(1, 16);
-p = 0;  % power coefficient
-
-for i=1:2:size(S, 2)
-    S(i) = 1/4 * (1 / power(2, p));
-    
-    if i + 1 <= N
-        S(i + 1) = 3/4 * (1 / power(2, p));
-    end
-
-    p = p + 1;
-end
-
-S = flip(S);  % max ... min => min ... max
-disp(S);
-
-clear i p offset S N;
-
 
 %% [Experimental] Plotting 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
@@ -366,21 +344,27 @@ patch(near_base(:, 1), near_base(:, 2), near_base(:, 3), 1, ...
     'LineWidth', 1);
 
 % plot poses as dots
-
 scatter3(sub_samples(:, 1), sub_samples(:, 2), sub_samples(:, 3), ...
-         10, 'filled', ...
+         8, 'filled', ...
          'Marker', 'o', ...
          'MarkerEdgeColor', 'k', ...
          'MarkerFaceColor', [0 .75 .75]);
  
 % plot poses as trapezoids
+
+% TODO: animate template poses in the frustum view
 cam_height = 0.12;
 
-for idx = 1:size(samples, 1)
+for idx = 1:size(sub_samples, 1)
     % Note: pose correction of the camera w.r.t. reference frame
-    % location = samples(idx, :);
-    % T = rt2tr(rpy2r(samples(idx, :)), location) * T_cam_optical;
-    % plot_camera_pose(cam_origin, cam_base, idx, cam_height, T);
+    location = sub_samples(idx, 1:3);
+    rotation = sub_samples(idx, 4:6);
+    
+    % Note: correction for rotation 
+    T = rt2tr(rpy2r(rotation), location);
+    
+    % plot_camera3d(idx, Camera, 0.12, T);
+    plot_pattern3d(Pattern, T, 0.3);
 end
 
 % figure settings
@@ -421,3 +405,23 @@ csv_samples(:, 4:6) = round(deg2rad(rpy_clusters), 3);
 writematrix(csv_samples, 'data/poses6D_0.5_1.5m_50_5.csv', ...
     'FileType', 'text', ...
     'Encoding', 'UTF-8');
+
+%% Q: cannot understand how this sequence helps to spread the angles
+N = 16; % number of samples
+S = zeros(1, 16);
+p = 0;  % power coefficient
+
+for i=1:2:size(S, 2)
+    S(i) = 1/4 * (1 / power(2, p));
+    
+    if i + 1 <= N
+        S(i + 1) = 3/4 * (1 / power(2, p));
+    end
+
+    p = p + 1;
+end
+
+S = flip(S);  % max ... min => min ... max
+disp(S);
+
+clear i p offset S N;
