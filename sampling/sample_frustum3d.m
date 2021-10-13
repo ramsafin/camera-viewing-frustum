@@ -9,24 +9,27 @@ function [pos] = sample_frustum3d(Camera, Pattern, view_dists, density)
 % density           plane sampling density (samples per meter squared)
 % 
 % === Outputs ===
-% pos               samples of 3D poses inside the frustum (size: Nx3)
+% pos               samples of 3D positions inside the frustum (size: Nx3)
 
     pos = [];
 
     % sample 3D points at each view distance
     for idx = 1:size(view_dists, 2)
-        [~, ref_base] = compute_frustum(Camera, view_dists(1, idx));
+        % compute 3D frustum
+        [~, ref_base] = frustum3d(Camera, view_dists(1, idx));
 
-        optical_base = transform_points3d(ref_base, ...
-                                          Camera.T_inv_cam_optical);
+        % working in the camera optical frame
+        optical_base = tf_points3d(ref_base, Camera.T_inv_cam_optical);
 
+        % compute pattern's C-space
         c_optical_base = c_space(optical_base, Pattern.dim);
-
-        num_samples = round(density * rect_area(c_optical_base));
+        
+        % sample the C-space (number of samples ~ area in squared meters)
+        num_samples = floor(density * rect_area(c_optical_base));
         optical_samples = inv_norm2d(c_optical_base, num_samples);
-
-        ref_samples = transform_points3d(optical_samples, ...
-                                         Camera.T_cam_optical);
+        
+        % convert back to the camera reference frame
+        ref_samples = tf_points3d(optical_samples, Camera.T_cam_optical);
 
         pos = [pos; ref_samples];
     end

@@ -1,4 +1,4 @@
-function [origin, base] = compute_frustum(camera, view_dist)
+function [origin, base] = frustum3d(camera, view_dist)
 %compute_frustum.m Computes a camera viewing frustum (trapezoid).
 %    The frustum is computed at a given viewing distance and transformed
 %    into camera's reference frame.
@@ -34,5 +34,5 @@ function [origin, base] = compute_frustum(camera, view_dist)
 
     % transform origin and base points into the camera reference frame
     origin = transp(camera.T_cam_ref(1:3, 4));
-    base = transform_points3d(base, camera.T_cam_optical);
+    base = tf_points3d(base, camera.T_cam_optical);
 end

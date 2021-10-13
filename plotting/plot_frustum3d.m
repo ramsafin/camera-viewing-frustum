@@ -16,9 +16,9 @@ function [] = plot_frustum3d(origin, base)
     patch(base(:, 1), base(:, 2), base(:, 3), 1, patch_opts{:});
 
     % plot the base's diagonals
-    diag_opts = {'Color', '#4DBEEE', 'LineWidth', 0.7};
-    plot3(base([1, 3], 1), base([1, 3], 2), base([1, 3], 3), diag_opts{:});
-    plot3(base([2, 4], 1), base([2, 4], 2), base([2, 4], 3), diag_opts{:});
+    %diag_opts = {'Color', '#4DBEEE', 'LineWidth', 0.7};
+    %plot3(base([1, 3], 1), base([1, 3], 2), base([1, 3], 3), diag_opts{:});
+    %plot3(base([2, 4], 1), base([2, 4], 2), base([2, 4], 3), diag_opts{:});
 
     % plot the frustum's sides
     points = [origin; base];

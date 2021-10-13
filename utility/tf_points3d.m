@@ -1,4 +1,4 @@
-function [points_tf] = transform_points3d(points, T)
+function [points_tf] = tf_points3d(points, T)
 %transform_points.m Transforms points applying a homogeneous transform.
 % 
 % === Inputs ===

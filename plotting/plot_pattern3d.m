@@ -27,12 +27,12 @@ function [] = plot_pattern3d(Pattern, T, scale)
     white2 = [mid_x_top; corners(2, :); mid_y_left; zeros(1, 3)];
     white4 = [mid_y_right; zeros(1, 3); mid_x_bottom; corners(4, :)];
     
-    T = T * rpy2tr(-90, 0, 90); % w.r.t. optical frame
+    T = T * Pattern.T_ref_frame; % frame correction
     
-    black1 = transform_points3d(black1, T);
-    black3 = transform_points3d(black3, T);
-    white2 = transform_points3d(white2, T);
-    white4 = transform_points3d(white4, T);
+    black1 = tf_points3d(black1, T);
+    black3 = tf_points3d(black3, T);
+    white2 = tf_points3d(white2, T);
+    white4 = tf_points3d(white4, T);
     
     % plot black-and-white patches on quadrands
     black_opts = {'FaceColor', 'black', 'FaceAlpha', 0.85, ...
@@ -48,7 +48,7 @@ function [] = plot_pattern3d(Pattern, T, scale)
     patch(white4(:, 1), white4(:, 2), white4(:, 3), 1, white_opts{:});
     
     % plot pattern's frame
-    trplot(T * Pattern.T_ref_frame, ...
+    trplot(T, ...
         'length', 0.2 * scale, ...
         'thick', 1.7, ...
         'rgb', 'notext', ...

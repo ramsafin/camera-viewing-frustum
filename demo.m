@@ -1,6 +1,7 @@
 %% [Required] MATLAB setup
 
 clear all;
+close all;
 
 addpath(genpath('plotting'), genpath('sampling'), ...
         genpath('frustum'), genpath('utility'));
@@ -46,13 +47,13 @@ Camera.T_inv_cam_optical = inv(Camera.T_cam_optical);
 
 Pattern.name = "Checkerboard";
 Pattern.dim = [297, 210] * 1e-3;
-Pattern.T_ref_frame = rpy2tr(90, 0, -90);
+Pattern.T_ref_frame = rpy2tr(90, 0, 90);
 
 %% Camera viewing frustum (3D)
 
 % compute frustum points in the camera reference frame
 view_dist = 10; % meters
-[ref_cam_origin, ref_cam_base] = compute_frustum(Camera, view_dist);
+[ref_cam_origin, ref_cam_base] = frustum3d(Camera, view_dist);
 
 figure('Name', 'Camera viewing frustum', Opts.fig{:});
 
@@ -88,11 +89,10 @@ clear ref_cam_base ref_cam_origin view_dist;
 
 % compute frustum points in the camera reference frame
 view_dist = 1; % meters
-[~, ref_cam_base] = compute_frustum(Camera, view_dist);
+[~, ref_cam_base] = frustum3d(Camera, view_dist);
 
 % transform frustum plane's base points to camera optical frame
-optical_cam_base = transform_points3d(ref_cam_base, ...
-                                      Camera.T_inv_cam_optical);
+optical_cam_base = tf_points3d(ref_cam_base, Camera.T_inv_cam_optical);
 
 % estimate calibration pattern's C-space
 [c_optical_cam_base, ~] = c_space(optical_cam_base, Pattern.dim);
@@ -134,11 +134,10 @@ clear view_dist pattern_dim num_samples samples ref_cam_base ...
 
 % compute frustum points in the camera reference frame
 view_dist = 1; % meters
-[~, ref_cam_base] = compute_frustum(Camera, view_dist);
+[~, ref_cam_base] = frustum3d(Camera, view_dist);
 
 % transform frustum base points into the camera optical frame
-optical_cam_base = transform_points3d(ref_cam_base, ...
-                                      Camera.T_inv_cam_optical);
+optical_cam_base = tf_points3d(ref_cam_base, Camera.T_inv_cam_optical);
 
 % estimate calibration pattern's C-space
 c_optical_cam_base = c_space(optical_cam_base, Pattern.dim);
@@ -156,7 +155,7 @@ toc
 
 % compute average distance of samples to the optical axis
 avg_d = avg_dist(clusters, zeros(1, 3), [0 0 1]);
-disp(['Avg. distance to the optical axis: ', num2str(avg_d)]);
+disp(['Avg. distance to the optical axis: ', num2str(avg_d, 3), ' m']);
 
 % cleanup variables
 clear view_dist ref_cam_base optical_cam_base c_optical_cam_base ...
@@ -165,12 +164,11 @@ clear view_dist ref_cam_base optical_cam_base c_optical_cam_base ...
 %% Plot clusters of sample points
 
 % compute frustum points in the camera reference frame
-view_dist = 5; % meters
-[ref_cam_origin, ref_cam_base] = compute_frustum(Camera, view_dist);
+view_dist = 3; % meters
+[ref_cam_origin, ref_cam_base] = frustum3d(Camera, view_dist);
 
 % transform frustum base points into the camera optical frame
-optical_cam_base = transform_points3d(ref_cam_base, ...
-                                      Camera.T_inv_cam_optical);
+optical_cam_base = tf_points3d(ref_cam_base, Camera.T_inv_cam_optical);
 
 % estimate calibration pattern's C-space
 c_optical_cam_base = c_space(optical_cam_base, Pattern.dim);
@@ -187,7 +185,7 @@ num_clusters = 100;
 [~, clusters] = kmeans(optical_samples, num_clusters, Opts.kmeans{:});
 
 % transform cluster centroids to the reference frame
-ref_clusters = transform_points3d(clusters, Camera.T_cam_optical);
+ref_clusters = tf_points3d(clusters, Camera.T_cam_optical);
 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
@@ -197,12 +195,19 @@ trplot(Camera.T_cam_optical, Opts.frame{:}, ...
 
 hold on;
 
+%{
+plot_c_space(transform_points3d(optical_cam_base, Camera.T_cam_optical), ...
+             transform_points3d(c_optical_cam_base, Camera.T_cam_optical));
+%}
+
 % plot camera frustum and image plane axes
 plot_frustum3d(ref_cam_origin, ref_cam_base);
 plot_image_axes(ref_cam_base);
 
 % plot cluster centroids
-scatter3(ref_clusters(:, 1), ref_clusters(:, 2), ref_clusters(:, 3), ...
+scatter3(ref_clusters(:, 1), ...
+         ref_clusters(:, 2), ...
+         ref_clusters(:, 3), ...
          24, Opts.scatter{:});
  
 % figure settings
@@ -226,6 +231,8 @@ clear view_dist ref_cam_origin ref_cam_base ...
 %% Plot a calibration template and camera poses (3D)
 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
+
+% camera reference frame
 trplot(Camera.T_cam_ref, 'frame', 'C_{ref}', Opts.frame{:});
 
 hold on;
@@ -233,6 +240,7 @@ hold on;
 % plot a calibration pattern
 % Note: pattern plane is orthogonal to the Z-axis of the optical frame
 T_pattern = rt2tr(rpy2r(0, 0, 0), [0.75 0 1]);
+
 plot_pattern3d(Pattern, T_pattern, 2);
 
 % plot camera poses (as pyramids with axes)
@@ -244,7 +252,7 @@ for idx = 1:num_cameras
     plot_camera3d(idx, Camera, 0.5, T);
 end
 
-% view setiings
+% figure setiings
 view([45 30]);
 title('Camera poses');
 axis([-1, 4, -3, 3, -3, 3]);
@@ -277,11 +285,9 @@ SAMPLING_DENSITY = 50; % samples per meter squared
 
 % camera view distances: from, to, number of samples
 dist = unifrnd(0.5, 0.75, [1, 250]);
-ori = [3, 70, 5];  % from 3 to 70 degrees, step = 5 deg
+positions = sample_frustum3d(Camera, Pattern, dist, SAMPLING_DENSITY);
 
-positions = sample_frustum3d(Camera, Pattern, dist, SAMPLING_DENSITY, ori);
-
-disp(['Number of poses: ', num2str(size(poses, 1))]);
+disp(['Number of poses: ', num2str(size(positions, 1))]);
 
 % =====================================
 % There are multiple choices for sub-sampling:
@@ -291,95 +297,84 @@ disp(['Number of poses: ', num2str(size(poses, 1))]);
 % 4. Unique tolerance: uniquetol(samples, tolerance, 'ByRows', true)
 
 % clusterting
-
 NUM_CLUSTERS = 500;
 
-disp('Starting K-means ...');
-
 tic
-[~, poses] = kmeans(poses, NUM_CLUSTERS, Opts.kmeans{:}, ...
-    'Replicates', 100, 'MaxIter', 300);
+disp('Starting K-means ...');
+[~, positions] = kmeans(positions, NUM_CLUSTERS, Opts.kmeans{:}, ...
+    'Replicates', 50, 'MaxIter', 100);
 toc
 
-disp('K-means finished!');
-
-avg_d = avg_dist(poses(:, 1:3), zeros(1, 3), [1 0 0]);
-disp(['Avg. distance of points to the X-axis: ', num2str(avg_d)]);
+avg_d = avg_dist(positions, zeros(1, 3), [1 0 0]);
+disp(['Avg. distance of points to the X-axis: ', num2str(avg_d, 3), ' m']);
 
 % cleanup
-clear SAMPLING_DENSITY NUM_CLUSTERS dist_samples avg_d;
+clear SAMPLING_DENSITY NUM_CLUSTERS dist avg_d;
 
 %% Uniform sampling over a frustum's volume
 NUM_SUB_SAMPLES = 50;
 
-% generate random sub-sample indices
-indices = randsample(1:size(poses, 1), NUM_SUB_SAMPLES);
-
-sub_samples = poses(indices, :);
+% Note: sub-sampled elements could be weighted
+sub_samples = datasample(positions, NUM_SUB_SAMPLES, 'Replace', false);
 
 avg_d = avg_dist(sub_samples, zeros(1, 3), [1 0 0]);
-disp(['Avg. distance of points to the X-axis: ', num2str(avg_d)]);
+disp(['Avg. distance of points to the X-axis: ', num2str(avg_d, 3), ' m']);
 
-% cleanup
-clear NUM_SUB_SAMPLES indices avg_d;
+% cleanup variables
+clear NUM_SUB_SAMPLES avg_d;
 
 %% [Experimental] Plotting 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
-% camera optical frame
-trplot(Camera.T_cam_optical, Opts.frame{:}, 'frame', 'C_{opt}');
-
-hold on;
-
-% plot the near and far planes of the trapezoid
-[~, near_base] = compute_frustum(Camera, 0.5);
-[far_origin, far_base] = compute_frustum(Camera, 1);
-
-plot_frustum3d(far_origin, far_base);
-plot_image_axes(far_base);
-
-patch(near_base(:, 1), near_base(:, 2), near_base(:, 3), 1, ...
-    'FaceColor', '#A2142F', 'FaceAlpha', 0.5, ...
-    'EdgeColor', '#A2142F', 'EdgeAlpha', 0.5, ...
-    'LineWidth', 1);
-
-% plot poses as dots
-scatter3(sub_samples(:, 1), sub_samples(:, 2), sub_samples(:, 3), ...
-         8, 'filled', ...
-         'Marker', 'o', ...
-         'MarkerEdgeColor', 'k', ...
-         'MarkerFaceColor', [0 .75 .75]);
- 
-% plot poses as trapezoids
-
-% TODO: animate template poses in the frustum view
-cam_height = 0.12;
-
-for idx = 1:size(sub_samples, 1)
-    % Note: pose correction of the camera w.r.t. reference frame
-    location = sub_samples(idx, 1:3);
-    rotation = sub_samples(idx, 4:6);
-    
-    % Note: correction for rotation 
-    T = rt2tr(rpy2r(rotation), location);
-    
-    % plot_camera3d(idx, Camera, 0.12, T);
-    plot_pattern3d(Pattern, T, 0.3);
-end
-
-% figure settings
-grid on;
-view([-90 90]);
 title('Pattern poses 3D');
-axis([-1, 1, -1, 1, -1, 1] .* 1.2);
 
 set(gca, 'FontSize', 13);
 xlabel('X (m)', Opts.axis_text{:});
 ylabel('Y (m)', Opts.axis_text{:});
 
-hold off;
+view([-100 5]);
+grid on;
 
-clear near_base far_origin far_base cam_height idx rpy;
+[~, near_base] = frustum3d(Camera, 0.5);
+[far_origin, far_base] = frustum3d(Camera, 1.5);
+
+%{
+scatter3(sub_samples(:, 1), ...
+         sub_samples(:, 2), ...
+         sub_samples(:, 3), ...
+         8, Opts.scatter{:});
+%}
+
+% animate template poses in the frustum view
+for idx = 1:size(sub_samples, 1)
+    % reference frame
+    trplot(Camera.T_cam_optical, Opts.frame{:}, 'frame', 'C_{opt}');
+    
+    hold on;
+    
+    % frustum and image axes
+    plot_frustum3d(far_origin, far_base);
+    % plot_image_axes(far_base);
+    
+    % near plane
+    patch(near_base(:, 1), near_base(:, 2), near_base(:, 3), 1, ...
+        'FaceColor', '#A2142F', 'FaceAlpha', 0.1, ...
+        'EdgeColor', '#A2142F', 'EdgeAlpha', 0.3, ...
+        'LineWidth', 1.2);
+    
+    % pattern pose
+    T = rt2tr(eye(3), sub_samples(idx, 1:3));
+    %plot_camera3d(idx, Camera, 0.12, T);
+    plot_pattern3d(Pattern, T, 1);
+
+    axis([-1, 1, -1, 1, -1, 1] .* 1.6);
+    
+    drawnow;
+    hold off;
+    pause(.2);
+end
+
+clear T near_base far_origin far_base cam_height idx;
 
 %% [Draft] Sample orientation
 
