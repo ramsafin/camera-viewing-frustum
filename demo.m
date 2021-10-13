@@ -323,6 +323,23 @@ disp(['Avg. distance of points to the X-axis: ', num2str(avg_d, 3), ' m']);
 % cleanup variables
 clear NUM_SUB_SAMPLES avg_d;
 
+%% Sampling pattern 3D orientation
+
+% ================================
+% 1. Generate all unique RPY combinations (given the limits).
+% 2. Partition 3D positions into quadrants (YZ axes in the reference frame).
+% 3. Partition 3D orientation angles into groups with positive/negative:
+%   3.1. Pitch
+%   3.2. Yaw
+% 4. Sample RPY for a 3D position:
+%   4.1. 1st/2nd quadrants - negative pitch, 3rd/4th - positive pitch
+%   4.2. 1st/4th quadrants - positive yaw, 2nd/3rd - negative yaw
+%   4.3. roll - any
+
+RPY = unique_rpy(0, 3:3:45, 3:3:45);
+RPY = rand_sign(RPY, [1 2 3], 0.5);
+
+
 %% [Experimental] Plotting 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
