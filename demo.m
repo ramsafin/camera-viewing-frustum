@@ -1,5 +1,6 @@
 %% [Required] MATLAB setup
 
+clc;
 clear all;
 close all;
 
@@ -19,7 +20,7 @@ Opts.scatter = {'filled', 'Marker', 'o', 'MarkerEdgeColor', 'k', ...
                 'MarkerFaceColor', [0 .75 .75]};
 
 Opts.kmeans = {'Distance',  'sqeuclidean', 'Display', 'off', ...
-    'Replicates', 50, 'MaxIter', 300, 'OnlinePhase', 'off'};
+    'Replicates', 50, 'MaxIter', 100, 'OnlinePhase', 'off'};
 
 %% [Required] Camera properties (camera model)
 
@@ -130,37 +131,6 @@ hold off;
 clear view_dist pattern_dim num_samples samples ref_cam_base ...
       optical_cam_base c_optical_cam_base optical_samples; 
 
-%% Clustering sample points (2D)
-
-% compute frustum points in the camera reference frame
-view_dist = 1; % meters
-[~, ref_cam_base] = frustum3d(Camera, view_dist);
-
-% transform frustum base points into the camera optical frame
-optical_cam_base = tf_points3d(ref_cam_base, Camera.T_inv_cam_optical);
-
-% estimate calibration pattern's C-space
-c_optical_cam_base = c_space(optical_cam_base, Pattern.dim);
-
-% generate frustum plane samples
-num_samples = 1200;
-samples = inv_norm2d(c_optical_cam_base, num_samples);
-
-% create clusters of 3D points (in the optical frame)
-disp('Starting K-means ...');
-tic
-num_clusters = 50;
-[~, clusters] = kmeans(samples, num_clusters, Opts.kmeans{:});
-toc
-
-% compute average distance of samples to the optical axis
-avg_d = avg_dist(clusters, zeros(1, 3), [0 0 1]);
-disp(['Avg. distance to the optical axis: ', num2str(avg_d, 3), ' m']);
-
-% cleanup variables
-clear view_dist ref_cam_base optical_cam_base c_optical_cam_base ...
-      num_samples samples num_clusters clusters avg_d;
-
 %% Plot clusters of sample points
 
 % compute frustum points in the camera reference frame
@@ -194,11 +164,6 @@ trplot(Camera.T_cam_optical, Opts.frame{:}, ...
        'length', view_dist * 0.7, 'frame', 'C_{opt}');
 
 hold on;
-
-%{
-plot_c_space(transform_points3d(optical_cam_base, Camera.T_cam_optical), ...
-             transform_points3d(c_optical_cam_base, Camera.T_cam_optical));
-%}
 
 % plot camera frustum and image plane axes
 plot_frustum3d(ref_cam_origin, ref_cam_base);
@@ -267,93 +232,27 @@ hold off;
 % cleanup variables
 clear idx R T num_cameras T_pattern;
 
-%% Sampling 3D poses in the viewing frustum
+%% Generate 6D poses of the calibration template
 
-% === How does it work? ===
-% Viewing frustum is a trapezoid with 2 bases located 
-% at different distances from the camera's optical center.
-% 
-% Sampling in the trapezoid volume involves:
-% 1. unifrom samplig the distance h of points from the optical center (Z-axis)
-% 2. 2D inverse Gaussian sampling by rejection on the trapezoid's base 
-%    located at distance h from the optical center
-%
-% The viewing distance is chosen empirically, such that all the calibration
-% template points are observable and the distance to the camera is minimal.
+Samples.density = 100;
+Samples.dist_min = 0.5;
+Samples.dist_max = 0.75;
 
-SAMPLING_DENSITY = 50; % samples per meter squared
+Samples.roll_range = 0:3:30;
+Samples.pitch_range = 5:3:70;
+Samples.yaw_range = 5:3:70;
 
-% camera view distances: from, to, number of samples
-dist = unifrnd(0.5, 0.75, [1, 250]);
-positions = sample_frustum3d(Camera, Pattern, dist, SAMPLING_DENSITY);
+Samples.num_clusters = 500;
+Samples.num_sub_samples = 50;
+Samples.cluster_opts = {'Distance',  'sqeuclidean', ...
+                        'Display', 'final', ...
+                        'Replicates', 100, ...
+                        'MaxIter', 150, ...
+                        'OnlinePhase', 'off'};
 
-disp(['Number of poses: ', num2str(size(positions, 1))]);
+poses = sample_poses6d(Camera, Pattern, Samples);
 
-% =====================================
-% There are multiple choices for sub-sampling:
-% 1. Clustering + uniform sampling
-% 2. Clustering
-% 3. Uniform sampling
-% 4. Unique tolerance: uniquetol(samples, tolerance, 'ByRows', true)
-
-% clusterting
-NUM_CLUSTERS = 500;
-
-tic
-disp('Starting K-means ...');
-[~, positions] = kmeans(positions, NUM_CLUSTERS, Opts.kmeans{:}, ...
-    'Replicates', 50, 'MaxIter', 100);
-toc
-
-avg_d = avg_dist(positions, zeros(1, 3), [1 0 0]);
-disp(['Avg. distance of points to the X-axis: ', num2str(avg_d, 3), ' m']);
-
-% cleanup
-clear SAMPLING_DENSITY NUM_CLUSTERS dist avg_d;
-
-%% Uniform sampling over a frustum's volume
-NUM_SUB_SAMPLES = 50;
-
-% Note: sub-sampled elements could be weighted
-positions = datasample(positions, NUM_SUB_SAMPLES, 'Replace', false);
-
-avg_d = avg_dist(positions, zeros(1, 3), [1 0 0]);
-disp(['Avg. distance of points to the X-axis: ', num2str(avg_d, 3), ' m']);
-
-% cleanup variables
-clear NUM_SUB_SAMPLES avg_d;
-
-%% Sampling pattern 3D orientation
-
-% ================================
-% 1. Generate all unique RPY combinations (given the limits).
-% 2. Partition 3D orientation angles into groups with positive/negative:
-%   2.1. Pitch
-%   2.2. Yaw
-% 3. Partition 3D positions into quadrants (YZ axes in the reference frame).
-% 4. Sample RPY for a 3D position:
-%   4.1. 1st/2nd quadrants - negative pitch, 3rd/4th - positive pitch
-%   4.2. 1st/4th quadrants - positive yaw, 2nd/3rd - negative yaw
-%   4.3. roll - any
-
-% TODO: RPYs are not sampled based on the number of position samples.
-
-RPYs = rand_sign(unique_rpy(0, 5:3:70, 5:3:70), [1 2 3], 0.5);
-
-[Q1, Q2, Q3, Q4] = partition_rpy(RPYs);
-[P1, P2, P3, P4] = partition_xyz(positions);
-
-% join positions + RPYs
-poses = [P1 datasample(Q1, size(P1, 1), 'Replace', false); ...
-         P2 datasample(Q2, size(P2, 1), 'Replace', false); ...
-         P3 datasample(Q3, size(P3, 1), 'Replace', false); ...
-         P4 datasample(Q4, size(P4, 1), 'Replace', false)];
-     
-poses = sortrows(poses, [1 2 3]);
-
-clear RPYs P1 P2 P3 P4 Q1 Q2 Q3 Q4 positions;
-
-%% [Experimental] Plotting 
+%% Plot 6D calibration template poses
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
 title('Pattern poses 3D');
@@ -367,13 +266,6 @@ grid on;
 
 [~, near_base] = frustum3d(Camera, 0.5);
 [far_origin, far_base] = frustum3d(Camera, 1.5);
-
-%{
-scatter3(sub_samples(:, 1), ...
-         sub_samples(:, 2), ...
-         sub_samples(:, 3), ...
-         8, Opts.scatter{:});
-%}
 
 % animate template poses in the frustum view
 for idx = 1:size(poses, 1)
@@ -402,19 +294,13 @@ for idx = 1:size(poses, 1)
     
     drawnow;
     hold off;
-    pause(.1);
+    pause(.5);
 end
 
 clear T near_base far_origin far_base cam_height idx;
 
-%% [Draft] Sample orientation
-
-% sample RPY (w.r.t. the camera reference frame)
-rpy_clusters = ... 
-    sample_optical_rpy(transform_points3d(sub_clusters, inv(T_cam_optical)), ...
-                                          [5, 45], [5, 45], [0, 0]);
-
-%% [Draft] Output sampled calibration template poses
+%% Output calibration template poses to a file
+clc;
 
 % File name structure:
 % 1. poses
@@ -423,14 +309,38 @@ rpy_clusters = ...
 % 4. index
 % Ex.: poses_0.5_to_0.75cm_200_1.csv
 
-% save as CSV
-csv_samples = zeros(num_sub_samples, 6);
-csv_samples(:, 1:3) = round(sub_clusters, 3);
-csv_samples(:, 4:6) = round(deg2rad(rpy_clusters), 3);
+fmt_filename = "data/poses_%.2f_to_%.2fm_%d_%d.csv";
 
-writematrix(csv_samples, 'data/poses6D_0.5_1.5m_50_5.csv', ...
-    'FileType', 'text', ...
-    'Encoding', 'UTF-8');
+Samples.density = 100;
+Samples.dist_min = 0.5;
+Samples.dist_max = 0.75;
+
+% RPY range (in degrees)
+Samples.roll_range = 0:3:15;
+Samples.pitch_range = 5:3:60;
+Samples.yaw_range = 5:3:60;
+
+Samples.num_sub_samples = 200;
+
+Samples.cluster_opts = {'Distance',  'sqeuclidean', ...
+                        'Display', 'off', ...
+                        'Replicates', 50, ...
+                        'MaxIter', 300, ...
+                        'OnlinePhase', 'off'};
+
+for idx=1:10
+    fprintf('===> Iteration %d\n', idx);
+    poses = sample_poses6d(Camera, Pattern, Samples);
+    num_samples = size(poses, 1);
+    
+    filename = sprintf(fmt_filename, ...
+        Samples.dist_min, Samples.dist_max, num_samples, idx);
+    
+    writematrix(poses, filename, 'FileType', 'text', 'Encoding', 'UTF-8');
+    disp('<=== Finished');
+end
+
+clear idx fmt_filename filename num_samples;
 
 %% Q: cannot understand how this sequence helps to spread the angles
 N = 16; % number of samples
