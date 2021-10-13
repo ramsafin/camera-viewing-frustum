@@ -338,6 +338,7 @@ clear NUM_SUB_SAMPLES avg_d;
 
 RPY = unique_rpy(0, 3:3:45, 3:3:45);
 RPY = rand_sign(RPY, [1 2 3], 0.5);
+[Q1, Q2, Q3, Q4] = partition_rpy(RPY);
 
 
 %% [Experimental] Plotting 
