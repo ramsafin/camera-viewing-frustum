@@ -315,9 +315,9 @@ clear SAMPLING_DENSITY NUM_CLUSTERS dist avg_d;
 NUM_SUB_SAMPLES = 50;
 
 % Note: sub-sampled elements could be weighted
-sub_samples = datasample(positions, NUM_SUB_SAMPLES, 'Replace', false);
+positions = datasample(positions, NUM_SUB_SAMPLES, 'Replace', false);
 
-avg_d = avg_dist(sub_samples, zeros(1, 3), [1 0 0]);
+avg_d = avg_dist(positions, zeros(1, 3), [1 0 0]);
 disp(['Avg. distance of points to the X-axis: ', num2str(avg_d, 3), ' m']);
 
 % cleanup variables
@@ -327,19 +327,31 @@ clear NUM_SUB_SAMPLES avg_d;
 
 % ================================
 % 1. Generate all unique RPY combinations (given the limits).
-% 2. Partition 3D positions into quadrants (YZ axes in the reference frame).
-% 3. Partition 3D orientation angles into groups with positive/negative:
-%   3.1. Pitch
-%   3.2. Yaw
+% 2. Partition 3D orientation angles into groups with positive/negative:
+%   2.1. Pitch
+%   2.2. Yaw
+% 3. Partition 3D positions into quadrants (YZ axes in the reference frame).
 % 4. Sample RPY for a 3D position:
 %   4.1. 1st/2nd quadrants - negative pitch, 3rd/4th - positive pitch
 %   4.2. 1st/4th quadrants - positive yaw, 2nd/3rd - negative yaw
 %   4.3. roll - any
 
-RPY = unique_rpy(0, 3:3:45, 3:3:45);
-RPY = rand_sign(RPY, [1 2 3], 0.5);
-[Q1, Q2, Q3, Q4] = partition_rpy(RPY);
+% TODO: RPYs are not sampled based on the number of position samples.
 
+RPYs = rand_sign(unique_rpy(0, 5:3:70, 5:3:70), [1 2 3], 0.5);
+
+[Q1, Q2, Q3, Q4] = partition_rpy(RPYs);
+[P1, P2, P3, P4] = partition_xyz(positions);
+
+% join positions + RPYs
+poses = [P1 datasample(Q1, size(P1, 1), 'Replace', false); ...
+         P2 datasample(Q2, size(P2, 1), 'Replace', false); ...
+         P3 datasample(Q3, size(P3, 1), 'Replace', false); ...
+         P4 datasample(Q4, size(P4, 1), 'Replace', false)];
+     
+poses = sortrows(poses, [1 2 3]);
+
+clear RPYs P1 P2 P3 P4 Q1 Q2 Q3 Q4 positions;
 
 %% [Experimental] Plotting 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
@@ -364,7 +376,7 @@ scatter3(sub_samples(:, 1), ...
 %}
 
 % animate template poses in the frustum view
-for idx = 1:size(sub_samples, 1)
+for idx = 1:size(poses, 1)
     % reference frame
     trplot(Camera.T_cam_optical, Opts.frame{:}, 'frame', 'C_{opt}');
     
@@ -381,7 +393,8 @@ for idx = 1:size(sub_samples, 1)
         'LineWidth', 1.2);
     
     % pattern pose
-    T = rt2tr(eye(3), sub_samples(idx, 1:3));
+    T = rt2tr(rpy2r(poses(idx, 4:6)), poses(idx, 1:3));
+    
     %plot_camera3d(idx, Camera, 0.12, T);
     plot_pattern3d(Pattern, T, 1);
 
@@ -389,7 +402,7 @@ for idx = 1:size(sub_samples, 1)
     
     drawnow;
     hold off;
-    pause(.2);
+    pause(.1);
 end
 
 clear T near_base far_origin far_base cam_height idx;
