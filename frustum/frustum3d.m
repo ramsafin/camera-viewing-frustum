@@ -1,38 +1,33 @@
-function [origin, base] = frustum3d(camera, view_dist)
-%compute_frustum.m Computes a camera viewing frustum (trapezoid).
-%    The frustum is computed at a given viewing distance and transformed
-%    into camera's reference frame.
+function [origin, base] = frustum3d(Camera, view_dist)
+%compute_frustum.m Computes a 3D camera viewing frustum at a particular distance.
+%   
+%   The viewing frustum is computed at a given distance along the optical axis (X-axis).
+%   It represents a pyramid with a base plane parallel to the image plane (YZ-plane).
 %
 % === Inputs ===
-% camera        A structure with camera parameters. 
-%               Required fields:
-%                   - hfov           horizontal field of view in radians
-%                   - aspect_ratio   width / height, type: double
-%                   - T_cam_optical  4x4 homogeneous transformation matrix 
-%                                    which converts points from the optical 
-%                                    frame (REP 103) to the reference frame
+% camera            a structure with camera parameters
 %
-% view_dist     Viewing distance from the camera's origin to the frustum's 
-%               base in meters (type: double)
+% view_dist         viewing distance from the camera's origin 
+%                   to the frustum's base (in meters)
 %
-% == Outputs ==
-% origin        frustum origin XYZ coordinates (size: 1x3)
-%
-% base          frustum base XYZ coordinates in the Cartesian 
-%               quadrands order (size: 4x3).
+% === Outputs ===
+% origin        origin coordinates (size: 1x3)
+% base          base coordinates in the Cartesian quadrants order (size: 4x3).
 
-    % compute XY offsets of the frustum's base points
-    x_len = 2 * tan(camera.hfov / 2) * view_dist;
-    y_len = x_len / camera.aspect_ratio;
+    % compute the pyramid's base size
+    y_len = 2 * tan(Camera.hfov / 2) * view_dist;
+    z_len = y_len / Camera.aspect_ratio;
 
-    x_offset = x_len / 2;
     y_offset = y_len / 2;
+    z_offset = z_len / 2;
+    
+    % fprintf('[Frustum 3D] Offsets y: %.3f z: %.3f\n', y_offset, z_offset);
 
-    % Note: base = transp([X; Y; Z])
-    base = transpose([1 -1 -1 1; 1 1 -1 -1; 1 1 1 1]);
-    base = base .* [x_offset, y_offset, view_dist];
-
-    % transform origin and base points into the camera reference frame
-    origin = transp(camera.T_cam_ref(1:3, 4));
-    base = tf_points3d(base, camera.T_cam_optical);
+    % compute the pyramid's base points in the Cartesian quadrants order (YZ-plane)
+    base = transp([1 1 1 1; 1 -1 -1 1; 1 1 -1 -1]);
+    base = base .* [view_dist, y_offset, z_offset];
+    
+    % transform into the camera reference frame
+    base = tf_points3d(base, Camera.T_cam_ref);
+    origin = transp(transl(Camera.T_cam_ref));
 end

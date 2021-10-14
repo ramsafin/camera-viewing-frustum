@@ -27,12 +27,12 @@ function [] = plot_pattern3d(Pattern, T, scale)
     white2 = [mid_x_top; corners(2, :); mid_y_left; zeros(1, 3)];
     white4 = [mid_y_right; zeros(1, 3); mid_x_bottom; corners(4, :)];
     
-    T = T * Pattern.T_ref_frame; % frame correction
+    H =  T * Pattern.T_ref_frame; % frame correction
     
-    black1 = tf_points3d(black1, T);
-    black3 = tf_points3d(black3, T);
-    white2 = tf_points3d(white2, T);
-    white4 = tf_points3d(white4, T);
+    black1 = tf_points3d(black1, H);
+    black3 = tf_points3d(black3, H);
+    white2 = tf_points3d(white2, H);
+    white4 = tf_points3d(white4, H);
     
     % plot black-and-white patches on quadrands
     black_opts = {'FaceColor', 'black', 'FaceAlpha', 0.85, ...

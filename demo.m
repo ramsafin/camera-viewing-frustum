@@ -1,8 +1,8 @@
 %% [Required] MATLAB setup
 
-clc;
 clear all;
 close all;
+clc;
 
 addpath(genpath('plotting'), genpath('sampling'), ...
         genpath('frustum'), genpath('utility'));
@@ -59,21 +59,20 @@ view_dist = 10; % meters
 figure('Name', 'Camera viewing frustum', Opts.fig{:});
 
 % plot camera optical frame
-trplot(Camera.T_cam_optical, Opts.frame{:}, ...
-    'length', view_dist * 0.7, 'frame', 'C_{opt}');
+trplot(Camera.T_cam_ref, Opts.frame{:}, 'length', view_dist * 0.7, 'frame', 'C');
 
 hold on;
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
-% plot camera frustum (3D pyramid)
+% plot camera viewing frustum
 plot_frustum3d(ref_cam_origin, ref_cam_base);
 
-% plot image plane XY axes
+% plot image plane (YZ axes in the camera reference frame)
 plot_image_axes(ref_cam_base);
 
-% setup graphics
+% figure settings
 grid on;
 view([40 30]);
-title('Viewing frustum 3D');
+title('3D viewing frustum');
 axis([-1, 1, -1, 1, -1, 1] .* view_dist);
 
 set(gca, 'FontSize', 13);
@@ -88,29 +87,26 @@ clear ref_cam_base ref_cam_origin view_dist;
 
 %% Camera viewing frustum (2D)
 
-% compute frustum points in the camera reference frame
+% compute viewing frustum points (in the camera reference frame)
 view_dist = 1; % meters
 [~, ref_cam_base] = frustum3d(Camera, view_dist);
 
-% transform frustum plane's base points to camera optical frame
-optical_cam_base = tf_points3d(ref_cam_base, Camera.T_inv_cam_optical);
-
 % estimate calibration pattern's C-space
-[c_optical_cam_base, ~] = c_space(optical_cam_base, Pattern.dim);
+[c_ref_cam_base, ~] = c_space(ref_cam_base, Pattern.dim, 5e-2);
 
 % generate frustum plane points (inverse Gaussian by rejection sampling)
 num_samples = 500;
-samples = inv_norm2d(c_optical_cam_base, num_samples);
+samples = inv_norm2d(c_ref_cam_base, num_samples);
 
 figure('Name', 'Viewing frustum plane', Opts.fig{:});
 
 % plot sample points
-scatter(samples(:, 1), samples(:, 2), 21, Opts.scatter{:});
+scatter(samples(:, 2), samples(:, 3), 21, Opts.scatter{:});
 
 hold on;
 
 % plot C-space boundaries
-plot_c_space(optical_cam_base, c_optical_cam_base);
+plot_c_space(ref_cam_base, c_ref_cam_base);
 
 % figure settings
 grid on;
@@ -118,8 +114,7 @@ grid minor;
 axis 'equal';
 title('Viewing frustum plane (2D)');
 
-legend(' Samples', ' Frustum (plane)', ' C-space', ...
-       'Location', 'southeast')
+legend(' Samples', ' Frustum (plane)', ' C-space', 'Location', 'southeast')
 
 set(gca, 'FontSize', 13);
 xlabel('X (m)', Opts.axis_text{:});
@@ -128,8 +123,7 @@ ylabel('Y (m)', Opts.axis_text{:});
 hold off;
 
 % cleanup variables
-clear view_dist pattern_dim num_samples samples ref_cam_base ...
-      optical_cam_base c_optical_cam_base optical_samples; 
+clear view_dist pattern_dim num_samples samples ref_cam_base c_ref_cam_base; 
 
 %% Plot clusters of sample points
 
@@ -137,31 +131,25 @@ clear view_dist pattern_dim num_samples samples ref_cam_base ...
 view_dist = 3; % meters
 [ref_cam_origin, ref_cam_base] = frustum3d(Camera, view_dist);
 
-% transform frustum base points into the camera optical frame
-optical_cam_base = tf_points3d(ref_cam_base, Camera.T_inv_cam_optical);
-
 % estimate calibration pattern's C-space
-c_optical_cam_base = c_space(optical_cam_base, Pattern.dim);
+c_ref_cam_base = c_space(ref_cam_base, Pattern.dim, 5e-2);
 
 % generate frustum plane samples (inverse Gaussian by rejection sampling)
 num_samples = 1000;
-optical_samples = inv_norm2d(c_optical_cam_base, num_samples);
+samples = inv_norm2d(c_ref_cam_base, num_samples);
 
-% clusters = datasample(optical_samples, 100, 'Replace', false);
-% clusters = uniquetol(optical_samples, 1e-1, 'ByRows', true);
+% clusters = datasample(samples, 100, 'Replace', false);
+% clusters = uniquetol(samples, 1e-1, 'ByRows', true);
 
 % create clusters of samples (in the optical frame)
 num_clusters = 100;
-[~, clusters] = kmeans(optical_samples, num_clusters, Opts.kmeans{:});
+[~, clusters] = kmeans(samples, num_clusters, Opts.kmeans{:});
 
-% transform cluster centroids to the reference frame
-ref_clusters = tf_points3d(clusters, Camera.T_cam_optical);
-
-figure('Name', 'Clustered frustum samples', Opts.fig{:});
+figure('Name', '3D viewing frustum clusters', Opts.fig{:});
 
 % plot camera optical frame
 trplot(Camera.T_cam_optical, Opts.frame{:}, ...
-       'length', view_dist * 0.7, 'frame', 'C_{opt}');
+       'length', view_dist * 0.7, 'frame', 'O');
 
 hold on;
 
@@ -170,10 +158,7 @@ plot_frustum3d(ref_cam_origin, ref_cam_base);
 plot_image_axes(ref_cam_base);
 
 % plot cluster centroids
-scatter3(ref_clusters(:, 1), ...
-         ref_clusters(:, 2), ...
-         ref_clusters(:, 3), ...
-         24, Opts.scatter{:});
+scatter3(clusters(:, 1), clusters(:, 2), clusters(:, 3), 24, Opts.scatter{:});
  
 % figure settings
 grid on;
@@ -188,24 +173,19 @@ ylabel('Y (m)', Opts.axis_text{:});
 hold off;
 
 % cleanup variables
-clear view_dist ref_cam_origin ref_cam_base ...
-      optical_cam_base c_optical_cam_base ...
-      num_clusters clusters ref_clusters ...
-      num_samples optical_samples;
+clear view_dist ref_cam_origin ref_cam_base num_clusters clusters ...
+      num_samples optical_samples c_ref_cam_base samples;
 
 %% Plot a calibration template and camera poses (3D)
 
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
 % camera reference frame
-trplot(Camera.T_cam_ref, 'frame', 'C_{ref}', Opts.frame{:});
+trplot(Camera.T_cam_ref, 'frame', 'C', Opts.frame{:});
 
 hold on;
 
-% plot a calibration pattern
-% Note: pattern plane is orthogonal to the Z-axis of the optical frame
 T_pattern = rt2tr(rpy2r(0, 0, 0), [0.75 0 1]);
-
 plot_pattern3d(Pattern, T_pattern, 2);
 
 % plot camera poses (as pyramids with axes)
@@ -219,7 +199,7 @@ end
 
 % figure setiings
 view([45 30]);
-title('Camera poses');
+title('Camera - pattern setting');
 axis([-1, 4, -3, 3, -3, 3]);
 
 set(gca, 'FontSize', 13);
@@ -234,25 +214,54 @@ clear idx R T num_cameras T_pattern;
 
 %% Generate 6D poses of the calibration template
 
+clc;
+
 Samples.density = 100;
-Samples.dist_min = 0.5;
+Samples.dist_min = 0.45;
 Samples.dist_max = 0.75;
 
-Samples.roll_range = 0:3:30;
+Samples.roll_range = 0:5:15;
 Samples.pitch_range = 5:3:70;
 Samples.yaw_range = 5:3:70;
 
-Samples.num_clusters = 500;
-Samples.num_sub_samples = 50;
+Samples.cluster_enabled = false;
+Samples.num_clusters = 800;
+Samples.num_sub_samples = 200;
 Samples.cluster_opts = {'Distance',  'sqeuclidean', ...
-                        'Display', 'final', ...
-                        'Replicates', 100, ...
+                        'Display', 'off', ...
+                        'Replicates', 50, ...
                         'MaxIter', 150, ...
                         'OnlinePhase', 'off'};
 
 poses = sample_poses6d(Camera, Pattern, Samples);
 
+figure('Name', 'Clusters', Opts.fig{:});
+
+% plot camera optical frame
+trplot(Camera.T_cam_optical, Opts.frame{:}, ...
+       'length', 0.7, 'frame', 'O');
+
+hold on;
+
+% plot cluster centroids
+scatter3(poses(:, 1), poses(:, 2), poses(:, 3), 24, Opts.scatter{:});
+ 
+% figure settings
+grid on;
+view([45 30]);
+title('Clustered frustum points');
+axis([-1, 1, -1, 1, -1, 1] .* 0.9);
+
+set(gca, 'FontSize', 13);
+xlabel('X (m)', Opts.axis_text{:});
+ylabel('Y (m)', Opts.axis_text{:});
+
+hold off;
+
+clear poses;
+
 %% Plot 6D calibration template poses
+
 figure('Name', 'Clustered frustum samples', Opts.fig{:});
 
 title('Pattern poses 3D');
@@ -270,7 +279,7 @@ grid on;
 % animate template poses in the frustum view
 for idx = 1:size(poses, 1)
     % reference frame
-    trplot(Camera.T_cam_optical, Opts.frame{:}, 'frame', 'C_{opt}');
+    trplot(Camera.T_cam_optical, Opts.frame{:}, 'frame', 'O');
     
     hold on;
     
@@ -309,38 +318,41 @@ clc;
 % 4. index
 % Ex.: poses_0.5_to_0.75cm_200_1.csv
 
-fmt_filename = "data/poses_%.2f_to_%.2fm_%d_%d.csv";
+fmt_filename = "data/%d/poses_%.2f_to_%.2fm_%d_%d.csv";
 
+% === Position sampling params ===
 Samples.density = 100;
-Samples.dist_min = 0.5;
+Samples.dist_min = 0.45;
 Samples.dist_max = 0.75;
 
-% RPY range (in degrees)
+% === Orientation sampling params ===
 Samples.roll_range = 0:3:15;
-Samples.pitch_range = 5:3:60;
-Samples.yaw_range = 5:3:60;
 
-Samples.num_sub_samples = 200;
+Samples.yaw_range = 5:3:45;
+Samples.pitch_range = 5:3:45;
 
-Samples.cluster_opts = {'Distance',  'sqeuclidean', ...
-                        'Display', 'off', ...
-                        'Replicates', 50, ...
-                        'MaxIter', 300, ...
-                        'OnlinePhase', 'off'};
+% === Clustering params ===
+Samples.cluster_enabled = false;
+Samples.num_clusters = 800;
+Samples.cluster_opts = {'Distance',  'sqeuclidean', 'Display', 'off', ...
+                        'Replicates', 10, 'MaxIter', 50, 'OnlinePhase', 'off'};
 
-for idx=1:10
+% === Uniform sub-sampling params ===
+Samples.num_sub_samples = 200; % the actual number of poses to be generated
+
+for idx=1:50
     fprintf('===> Iteration %d\n', idx);
     poses = sample_poses6d(Camera, Pattern, Samples);
     num_samples = size(poses, 1);
     
-    filename = sprintf(fmt_filename, ...
+    filename = sprintf(fmt_filename, Samples.num_sub_samples, ...
         Samples.dist_min, Samples.dist_max, num_samples, idx);
     
     writematrix(poses, filename, 'FileType', 'text', 'Encoding', 'UTF-8');
     disp('<=== Finished');
 end
 
-clear idx fmt_filename filename num_samples;
+clear idx fmt_filename filename num_samples poses;
 
 %% Q: cannot understand how this sequence helps to spread the angles
 N = 16; % number of samples

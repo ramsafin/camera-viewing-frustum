@@ -10,6 +10,7 @@ function [Q1, Q2, Q3, Q4] = partition_rpy(RPY)
 % Q2            a matrix of RPYs (pitch - negative, yaw - negative)
 % Q3            a matrix of RPYs (pitch - positive, yaw - negative)
 % Q4            a matrix of RPYs (pitch - positive, yaw - positive)
+    
     Q1 = RPY(RPY(:, 2) < 0 & RPY(:, 3) > 0, :);
     Q2 = RPY(RPY(:, 2) < 0 & RPY(:, 3) < 0, :);
     Q3 = RPY(RPY(:, 2) > 0 & RPY(:, 3) < 0, :);

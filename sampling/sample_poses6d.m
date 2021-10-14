@@ -45,14 +45,13 @@ function [poses] = sample_poses6d(Camera, Pattern, Samples)
 % === Outputs ===
 % poses             generated 6D poses
     
-    % TODO: add user output messages
-    
     % 1. Generate camera view distances (uniform distribution)    
-    dist_num = (Samples.dist_max - Samples.dist_min) * 1000;
+    dist_num = floor((Samples.dist_max - Samples.dist_min) * 1000); % cm precision
     dist = unifrnd(Samples.dist_min, Samples.dist_max, [1, dist_num]);
+    dist = uniquetol(dist, 5e-4, 'DataScale', 1); % remove "duplicates" (<= 0.5 mm)
     
     fprintf('Generated %d distance samples in range %.2f to %.2f m\n', ...
-             dist_num, Samples.dist_min, Samples.dist_max);
+             size(dist, 2), Samples.dist_min, Samples.dist_max);
     
     % 2. Sample 3D positions in the camera viewing frustum
     XYZ = sample_frustum3d(Camera, Pattern, dist, Samples.density);
@@ -61,15 +60,14 @@ function [poses] = sample_poses6d(Camera, Pattern, Samples)
              size(XYZ, 1), Samples.density);
     
     % 3. Clustering 3D position samples (i.e. representative sub-sampling)
-    %stream = RandStream('mlfg6331_64');
-    %options = statset('UseParallel', 1, 'UseSubstreams', 1, 'Streams', stream);
-    
-    tic
-    disp('Starting K-means clustering ...');
-    [~, XYZ] = kmeans(XYZ, Samples.num_clusters, Samples.cluster_opts{:});
-    
-    fprintf('Created %d clusters\n', size(XYZ, 1));
-    toc
+    if Samples.cluster_enabled
+        tic
+        disp('Starting K-means clustering ...');
+        [~, XYZ] = kmeans(XYZ, Samples.num_clusters, Samples.cluster_opts{:});
+
+        fprintf('Created %d clusters\n', size(XYZ, 1));
+        toc
+    end
     
     % 4. Uniform sub-sampling over a frustum's volume
     XYZ = datasample(XYZ, Samples.num_sub_samples, 'Replace', false);
@@ -88,11 +86,20 @@ function [poses] = sample_poses6d(Camera, Pattern, Samples)
     [Q1, Q2, Q3, Q4] = partition_rpy(RPY);
     [P1, P2, P3, P4] = partition_xyz(XYZ);
     
+    fprintf('Q1: %d, Q2: %d, Q3: %d, Q4: %d\n', ...
+        size(Q1, 1), size(Q2, 1), size(Q3, 1), size(Q4, 1));
+    
+    fprintf('P1: %d, P2: %d, P3: %d, P4: %d\n', ...
+        size(P1, 1), size(P2, 1), size(P3, 1), size(P4, 1));
+    
     % 8. Join 3D positions and 3D orientations into 6D poses
     poses = [P1 datasample(Q1, size(P1, 1), 'Replace', false); ...
              P2 datasample(Q2, size(P2, 1), 'Replace', false); ...
              P3 datasample(Q3, size(P3, 1), 'Replace', false); ...
              P4 datasample(Q4, size(P4, 1), 'Replace', false)];
+    
+    fprintf('Combined positions and orientations by quadrants\n');
+    fprintf('Number of poses generated: %d\n', size(poses, 1));
     
     % 9. Shuffle poses
     poses = poses(randperm(size(poses, 1)), :);

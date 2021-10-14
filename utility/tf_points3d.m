@@ -1,12 +1,12 @@
 function [points_tf] = tf_points3d(points, T)
-%transform_points.m Transforms points applying a homogeneous transform.
+%transform_points.m Transforms 3D points multiplying to a homogeneous matrix.
 % 
 % === Inputs ===
-% points        XYZ coordinates of points to transform (size: Nx3)
+% points        coordinates of points (size: Nx3)
 % T             4x4 homogeneous transformation matrix
 %
 % === Outputs ===
-% points_tf     XYZ coordinates of the transformted points (size: Nx3)
+% points_tf     coordinates of the transformted points (size: Nx3)
 
     points_tf = zeros(size(points));
 

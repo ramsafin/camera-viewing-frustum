@@ -4,9 +4,8 @@ function [] = plot_frustum3d(origin, base)
 %   of the provided coordinate frame.
 %
 % === Inputs ===
-% origin    XYZ coordinates of the frustum's apex (size: 1x3)
-%
-% base      XYZ coordinates of the frustum's base (size: 4x3)
+% origin    coordinates of the frustum's apex (size: 1x3)
+% base      coordinates of the frustum's base (size: 4x3)
 
     % plot the frustum's base
     patch_opts = {'FaceColor', '#4DBEEE', 'FaceAlpha', 0.05, ...
