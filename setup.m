@@ -61,11 +61,25 @@ Graphics.frustum.patch = {'FaceColor', '#4DBEEE', 'FaceAlpha', 0.1, ...
                           'EdgeColor', '#4DBEEE', 'EdgeAlpha', 0.7, ...
                           'LineWidth', 1.75};
                       
+Graphics.frustum.frame = {'thick', 1.75, 'rgb', 'notext', 'text_opts', {'FontSize', 7}};
+
+Graphics.frustum.near_plane = {'FaceColor', '#A2142F', 'FaceAlpha', 0.1, ...
+                               'EdgeColor', '#A2142F', 'EdgeAlpha', 0.3, ...
+                               'LineWidth', 1.2};
+
 Graphics.c_space.opts = {'FaceColor', 'cyan', 'FaceAlpha', 0.01, 'EdgeColor', 'red', ...
                          'EdgeAlpha', 0.7, 'LineWidth', 3};
     
 Graphics.c_space.c_opts = {'FaceColor', 'cyan', 'FaceAlpha', 0.125, ...
                            'EdgeColor', 'green', 'EdgeAlpha', 0.7, 'LineWidth', 3};
+
+Graphics.pattern.patch.black = {'FaceColor', 'black', 'FaceAlpha', 0.85, ...
+                                'EdgeColor', 'black', 'EdgeAlpha', 1, 'LineWidth', 1};
+
+Graphics.pattern.patch.white = {'FaceColor', 'white', 'FaceAlpha', 0.95, ...
+                                'EdgeColor', 'black', 'EdgeAlpha', 1, 'LineWidth', 1};
+
+Graphics.pattern.frame = {'thick', 1.75, 'rgb', 'notext', 'text_opts', {'FontSize', 7}};
 
 %% Create a camera structure
 
@@ -98,6 +112,18 @@ Pattern.T_ref_frame = rpy2tr(90, 0, 90);
 %% Sampling options
 Samples.kmeans = {'Distance', 'sqeuclidean', 'Display', 'off', ...
                   'Replicates', 100, 'MaxIter', 100, 'OnlinePhase', 'off'};
+              
+Samples.density = 100;
+Samples.dist_min = 0.45;
+Samples.dist_max = 0.75;
+
+Samples.roll_range = 0:5:15;
+Samples.pitch_range = 5:3:70;
+Samples.yaw_range = 5:3:70;
+
+Samples.cluster_enabled = false;
+Samples.num_clusters = 800;
+Samples.num_sub_samples = 200;
 
 %% Cheat Sheet
 

@@ -153,15 +153,17 @@ clear dist ref_cam_origin ref_cam_base num_clusters clusters ...
 
 %% Plot a calibration template and camera poses (3D)
 
-figure('Name', 'Clustered frustum samples', Opts.fig{:});
+figure('Name', 'Clustered frustum samples', Graphics.figure{:});
 
-% camera reference frame
-trplot(Camera.T_cam_ref, 'frame', 'C', Opts.frame{:});
+view([45 30]);
+
+% plot camera reference frame
+trplot(Camera.T_cam_ref, Graphics.frame{:}, 'frame', 'C');
 
 hold on;
 
 T_pattern = rt2tr(rpy2r(0, 0, 0), [0.75 0 1]);
-plot_pattern3d(Pattern, T_pattern, 2);
+plot_pattern3d(Pattern, T_pattern, 2, Graphics.pattern);
 
 % plot camera poses (as pyramids with axes)
 num_cameras = 1;
@@ -169,18 +171,18 @@ num_cameras = 1;
 for idx = 1:num_cameras
     R = rotz(180);
     T = rt2tr(R, [3, 0, 1]);
-    plot_camera3d(idx, Camera, 0.5, T);
+    plot_camera3d(idx, Camera, 0.5, T, Graphics.frustum);
 end
 
-% figure setiings
-view([45 30]);
-title('Camera - pattern setting');
+% axes size
 axis([-1, 4, -3, 3, -3, 3]);
 
-set(gca, 'FontSize', 13);
-xlabel('X (m)', Opts.axis_text{:});
-ylabel('Y (m)', Opts.axis_text{:});
-zlabel('Z (m)', Opts.axis_text{:});
+% meta information
+title('Camera - pattern setting');
+
+xlabel('X (m)', Graphics.axis.text{:});
+ylabel('Y (m)', Graphics.axis.text{:});
+zlabel('Z (m)', Graphics.axis.text{:});
 
 hold off;
 
@@ -189,102 +191,83 @@ clear idx R T num_cameras T_pattern;
 
 %% Generate 6D poses of the calibration template
 
-clc;
-
-Samples.density = 100;
-Samples.dist_min = 0.45;
-Samples.dist_max = 0.75;
-
-Samples.roll_range = 0:5:15;
-Samples.pitch_range = 5:3:70;
-Samples.yaw_range = 5:3:70;
-
-Samples.cluster_enabled = false;
-Samples.num_clusters = 800;
-Samples.num_sub_samples = 200;
-Samples.cluster_opts = {'Distance',  'sqeuclidean', ...
-                        'Display', 'off', ...
-                        'Replicates', 50, ...
-                        'MaxIter', 150, ...
-                        'OnlinePhase', 'off'};
-
 poses = sample_poses6d(Camera, Pattern, Samples);
 
-figure('Name', 'Clusters', Opts.fig{:});
+% === Plotting ===
+figure('Name', 'Clusters', Graphics.figure{:});
+
+view([45 30]);
 
 % plot camera optical frame
-trplot(Camera.T_cam_optical, Opts.frame{:}, ...
-       'length', 0.7, 'frame', 'O');
+trplot(Camera.T_cam_optical, Graphics.frame{:}, 'frame', 'O', 'length', 0.7);
 
 hold on;
 
 % plot cluster centroids
-scatter3(poses(:, 1), poses(:, 2), poses(:, 3), 24, Opts.scatter{:});
- 
-% figure settings
+scatter3(poses(:, 1), poses(:, 2), poses(:, 3), 24, Graphics.scatter{:});
+
+% enable grid lines
 grid on;
-view([45 30]);
-title('Clustered frustum points');
+
+% axes size
 axis([-1, 1, -1, 1, -1, 1] .* 0.9);
 
-set(gca, 'FontSize', 13);
-xlabel('X (m)', Opts.axis_text{:});
-ylabel('Y (m)', Opts.axis_text{:});
+% meta information
+title('Clustered frustum points');
+
+xlabel('X (m)', Graphics.axis.text{:});
+ylabel('Y (m)', Graphics.axis.text{:});
 
 hold off;
 
-clear poses;
-
 %% Plot 6D calibration template poses
-
-figure('Name', 'Clustered frustum samples', Opts.fig{:});
-
-title('Pattern poses 3D');
-
-set(gca, 'FontSize', 13);
-xlabel('X (m)', Opts.axis_text{:});
-ylabel('Y (m)', Opts.axis_text{:});
-
-view([-100 5]);
-grid on;
 
 [~, near_base] = frustum3d(Camera, 0.5);
 [far_origin, far_base] = frustum3d(Camera, 1.5);
 
+% === Plotting ===
+figure('Name', 'Clustered frustum samples', Graphics.figure{:});
+
+view([-100 5]);
+
+title('Pattern poses 3D');
+
+xlabel('X (m)', Graphics.axis.text{:});
+ylabel('Y (m)', Graphics.axis.text{:});
+
+grid on;
+
 % animate template poses in the frustum view
 for idx = 1:size(poses, 1)
-    % reference frame
-    trplot(Camera.T_cam_optical, Opts.frame{:}, 'frame', 'O');
+    
+    % plot the reference frame
+    trplot(Camera.T_cam_optical, Graphics.frame{:}, 'frame', 'O');
     
     hold on;
     
     % frustum and image axes
-    plot_frustum3d(far_origin, far_base);
-    % plot_image_axes(far_base);
+    plot_frustum3d(far_origin, far_base, Graphics.frustum.patch);
     
     % near plane
-    patch(near_base(:, 1), near_base(:, 2), near_base(:, 3), 1, ...
-        'FaceColor', '#A2142F', 'FaceAlpha', 0.1, ...
-        'EdgeColor', '#A2142F', 'EdgeAlpha', 0.3, ...
-        'LineWidth', 1.2);
+    patch(near_base(:, 1), near_base(:, 2), near_base(:, 3), ...
+          1, Graphics.frustum.near_plane{:});
     
     % pattern pose
     T = rt2tr(rpy2r(poses(idx, 4:6)), poses(idx, 1:3));
     
-    %plot_camera3d(idx, Camera, 0.12, T);
-    plot_pattern3d(Pattern, T, 1);
+    % plot_camera3d(idx, Camera, 0.12, T);
+    plot_pattern3d(Pattern, T, 1, Graphics.pattern);
 
     axis([-1, 1, -1, 1, -1, 1] .* 1.6);
     
     drawnow;
     hold off;
-    pause(.5);
+    pause(.3);
 end
 
 clear T near_base far_origin far_base cam_height idx;
 
 %% Output calibration template poses to a file
-clc;
 
 % File name structure:
 % 1. poses
@@ -295,25 +278,16 @@ clc;
 
 fmt_filename = "data/%d/poses_%.2f_to_%.2fm_%d_%d.csv";
 
-% === Position sampling params ===
+% == Overried pose generation params ===
 Samples.density = 100;
 Samples.dist_min = 0.45;
 Samples.dist_max = 0.75;
 
-% === Orientation sampling params ===
-Samples.roll_range = 0:3:15;
-
 Samples.yaw_range = 5:3:45;
+Samples.roll_range = 0:3:15;
 Samples.pitch_range = 5:3:45;
 
-% === Clustering params ===
-Samples.cluster_enabled = false;
-Samples.num_clusters = 800;
-Samples.cluster_opts = {'Distance',  'sqeuclidean', 'Display', 'off', ...
-                        'Replicates', 10, 'MaxIter', 50, 'OnlinePhase', 'off'};
-
-% === Uniform sub-sampling params ===
-Samples.num_sub_samples = 200; % the actual number of poses to be generated
+Samples.num_sub_samples = 200;
 
 for idx=1:50
     fprintf('===> Iteration %d\n', idx);

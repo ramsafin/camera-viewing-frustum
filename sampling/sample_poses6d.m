@@ -1,4 +1,4 @@
-function [poses] = sample_poses6d(Camera, Pattern, Samples)
+function [poses] = sample_poses6d(Camera, Pattern, opts)
 %sample_poses6d.m Samples 6D poses in the frustum, i.e. position and orientation.
 % Poses are represented in the form [X, Y, Z, Roll, Pitch, Yaw].
 % 
@@ -40,42 +40,42 @@ function [poses] = sample_poses6d(Camera, Pattern, Samples)
 % === Inputs ===
 % Camera        a structure describing camera parameters
 % Pattern       a structure describing pattern parameters
-% Samples       a structure describing a sampling parameters
+% opts          a structure describing a sampling parameters
 % 
 % === Outputs ===
 % poses             generated 6D poses
     
     % 1. Generate camera view distances (uniform distribution)    
-    dist_num = floor((Samples.dist_max - Samples.dist_min) * 1000); % cm precision
-    dist = unifrnd(Samples.dist_min, Samples.dist_max, [1, dist_num]);
+    dist_num = floor((opts.dist_max - opts.dist_min) * 1000); % cm precision
+    dist = unifrnd(opts.dist_min, opts.dist_max, [1, dist_num]);
     dist = uniquetol(dist, 5e-4, 'DataScale', 1); % remove "duplicates" (<= 0.5 mm)
     
     fprintf('Generated %d distance samples in range %.2f to %.2f m\n', ...
-             size(dist, 2), Samples.dist_min, Samples.dist_max);
+             size(dist, 2), opts.dist_min, opts.dist_max);
     
     % 2. Sample 3D positions in the camera viewing frustum
-    XYZ = sample_frustum3d(Camera, Pattern, dist, Samples.density);
+    XYZ = sample_frustum3d(Camera, Pattern, dist, opts.density);
     
     fprintf('Sampled %d frustum points (density = %d samples/m^2)\n', ...
-             size(XYZ, 1), Samples.density);
+             size(XYZ, 1), opts.density);
     
     % 3. Clustering 3D position samples (i.e. representative sub-sampling)
-    if Samples.cluster_enabled
+    if opts.cluster_enabled
         tic
         disp('Starting K-means clustering ...');
-        [~, XYZ] = kmeans(XYZ, Samples.num_clusters, Samples.cluster_opts{:});
+        [~, XYZ] = kmeans(XYZ, opts.num_clusters, opts.kmeans{:});
 
         fprintf('Created %d clusters\n', size(XYZ, 1));
         toc
     end
     
     % 4. Uniform sub-sampling over a frustum's volume
-    XYZ = datasample(XYZ, Samples.num_sub_samples, 'Replace', false);
+    XYZ = datasample(XYZ, opts.num_sub_samples, 'Replace', false);
                        
     fprintf('Sub-sampled %d positions\n', size(XYZ, 1));
     
     % 5. Generate unique RPY combinations
-    RPY = unique_rpy(Samples.roll_range, Samples.pitch_range, Samples.yaw_range);
+    RPY = unique_rpy(opts.roll_range, opts.pitch_range, opts.yaw_range);
     
     fprintf('Generated %d unique RPY combinations\n', size(RPY, 1));
     

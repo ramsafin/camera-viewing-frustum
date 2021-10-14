@@ -1,4 +1,4 @@
-function [] = plot_pattern3d(Pattern, T, scale)
+function [] = plot_pattern3d(Pattern, T, scale, opts)
 %plot_pattern3d.m Plots a 3D pattern on the scene.
 %
 % === Inputs ===
@@ -34,24 +34,13 @@ function [] = plot_pattern3d(Pattern, T, scale)
     white2 = tf_points3d(white2, H);
     white4 = tf_points3d(white4, H);
     
-    % plot black-and-white patches on quadrands
-    black_opts = {'FaceColor', 'black', 'FaceAlpha', 0.85, ...
-        'EdgeColor', 'black', 'EdgeAlpha', 1, 'LineWidth', 1};
+    % plot black-and-white patches on quadrants
+    patch(black1(:, 1), black1(:, 2), black1(:, 3), 1, opts.patch.black{:});
+    patch(black3(:, 1), black3(:, 2), black3(:, 3), 1, opts.patch.black{:});
     
-    patch(black1(:, 1), black1(:, 2), black1(:, 3), 1, black_opts{:});
-    patch(black3(:, 1), black3(:, 2), black3(:, 3), 1, black_opts{:});
-
-    white_opts = {'FaceColor', 'white', 'FaceAlpha', 0.95, ...
-        'EdgeColor', 'black', 'EdgeAlpha', 1, 'LineWidth', 1};
-    
-    patch(white2(:, 1), white2(:, 2), white2(:, 3), 1, white_opts{:});
-    patch(white4(:, 1), white4(:, 2), white4(:, 3), 1, white_opts{:});
+    patch(white2(:, 1), white2(:, 2), white2(:, 3), 1, opts.patch.white{:});
+    patch(white4(:, 1), white4(:, 2), white4(:, 3), 1, opts.patch.white{:});
     
     % plot pattern's frame
-    trplot(T, ...
-        'length', 0.2 * scale, ...
-        'thick', 1.7, ...
-        'rgb', 'notext', ...
-        'text_opts', {'FontSize', 7});
+    trplot(T, opts.frame{:}, 'length', 0.2 * scale);
 end
-
