@@ -1,129 +1,103 @@
-%% [Required] MATLAB setup
-
-clear all;
-close all;
-clc;
-
-addpath(genpath('plotting'), genpath('sampling'), ...
-        genpath('frustum'), genpath('utility'));
-
-%% [Required] Options
-
-Opts.axis_text = {'FontSize', 14, 'FontWeight', 'bold', 'Color', 'k'};
-
-Opts.fig = {'Color', 'white', 'WindowStyle', 'docked'};
-
-Opts.frame = {'thick', 2, 'rgb', 'framelabeloffset', [0.1, 0.1], ...
-    'text_opts', {'FontSize', 13, 'FontWeight', 'bold'}};
-
-Opts.scatter = {'filled', 'Marker', 'o', 'MarkerEdgeColor', 'k', ...
-                'MarkerFaceColor', [0 .75 .75]};
-
-Opts.kmeans = {'Distance',  'sqeuclidean', 'Display', 'off', ...
-    'Replicates', 50, 'MaxIter', 100, 'OnlinePhase', 'off'};
-
-%% [Required] Camera properties (camera model)
-
-Camera.name = 'Pin-hole camera';
-
-Camera.hfov = deg2rad(60);
-Camera.aspect_ratio = 4/3;
-
-Camera.height = 480;
-Camera.width = Camera.height * Camera.aspect_ratio;
-
-% camera reference frame
-Camera.T_cam_ref = eye(4);
-
-% camera optical frame (REP 103: https://www.ros.org/reps/rep-0103.html)
-%   OX - right
-%   OY - down
-%   OZ - forward (camera viewing direction)
-Camera.T_cam_optical = rpy2tr(-90, 0, -90) * Camera.T_cam_ref;
-
-% transform from the reference to the optical frame
-Camera.T_inv_cam_optical = inv(Camera.T_cam_optical);
-
-%% [Required] Pattern properties
-
-Pattern.name = "Checkerboard";
-Pattern.dim = [297, 210] * 1e-3;
-Pattern.T_ref_frame = rpy2tr(90, 0, 90);
+% create required objects and set default parameters
+setup;
 
 %% Camera viewing frustum (3D)
 
 % compute frustum points in the camera reference frame
-view_dist = 10; % meters
-[ref_cam_origin, ref_cam_base] = frustum3d(Camera, view_dist);
+dist = 1;
+[ref_cam_origin, ref_cam_base] = frustum3d(Camera, dist);
 
-figure('Name', 'Camera viewing frustum', Opts.fig{:});
+% === Plotting ===
+figure('Name', 'Camera viewing frustum', Graphics.figure{:});
 
 % plot camera optical frame
-trplot(Camera.T_cam_ref, Opts.frame{:}, 'length', view_dist * 0.7, 'frame', 'C');
+trplot(Camera.T_cam_ref, Graphics.frame{:}, 'frame', 'C', 'length', dist * 0.7);
 
 hold on;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+% shift optical frame for visual purposes
+T_optical_offset = transl(-0.5, -0.5, 0.5);
+
+trplot(T_optical_offset * Camera.T_cam_optical, Graphics.frame{:}, ...
+    'frame', 'O', 'length', dist * 0.3, 'thick', 2, 'framelabeloffset', [1, 0]);
+
 % plot camera viewing frustum
-plot_frustum3d(ref_cam_origin, ref_cam_base);
+plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum_patch);
 
-% plot image plane (YZ axes in the camera reference frame)
-plot_image_axes(ref_cam_base);
+title('3D viewing frustum', 'FontSize', 14, 'FontWeight', 'bold');
 
-% figure settings
+% axes labels
+xlabel('X (m)', Graphics.axis.text{:});
+ylabel('Y (m)', Graphics.axis.text{:});
+zlabel('Z (m)', Graphics.axis.text{:});
+
+% axes size and shape
+axis 'square';
+axis([-1, 1, -1, 1, -1, 1] .* dist);
+
+% enable axes grid lines ('on', 'off', 'minor')
 grid on;
-view([40 30]);
-title('3D viewing frustum');
-axis([-1, 1, -1, 1, -1, 1] .* view_dist);
 
-set(gca, 'FontSize', 13);
-xlabel('X (m)', Opts.axis_text{:});
-ylabel('Y (m)', Opts.axis_text{:});
-zlabel('Z (m)', Opts.axis_text{:});
+% disable current axes minor ticks
+set(gca, 'XMinorTick', 'off', 'YMinorTick', 'off', 'ZMinorTick', 'off');
+
+% setup minor and major ticks of the axes
+Axes = gca;
+Axes.XAxis.TickValues = -dist:0.5:dist;
+Axes.YAxis.TickValues = -dist:0.5:dist;
+Axes.ZAxis.TickValues = -dist:0.5:dist;
+
+% set viewing angle
+view([47 18]); 
 
 hold off;
 
 % cleanup variables
-clear ref_cam_base ref_cam_origin view_dist;
+clear ref_cam_base ref_cam_origin dist T_optical_offset Axes;
 
 %% Camera viewing frustum (2D)
 
 % compute viewing frustum points (in the camera reference frame)
-view_dist = 1; % meters
-[~, ref_cam_base] = frustum3d(Camera, view_dist);
+dist = 1;
+[~, ref_cam_base] = frustum3d(Camera, dist);
 
 % estimate calibration pattern's C-space
 [c_ref_cam_base, ~] = c_space(ref_cam_base, Pattern.dim, 5e-2);
 
-% generate frustum plane points (inverse Gaussian by rejection sampling)
+% generate frustum plane points
 num_samples = 500;
 samples = inv_norm2d(c_ref_cam_base, num_samples);
 
-figure('Name', 'Viewing frustum plane', Opts.fig{:});
+% === Plotting ===
+figure('Name', 'Viewing frustum plane', Graphics.figure{:});
 
 % plot sample points
-scatter(samples(:, 2), samples(:, 3), 21, Opts.scatter{:});
+scatter(samples(:, 2), samples(:, 3), 21, Graphics.scatter{:});
 
 hold on;
 
 % plot C-space boundaries
-plot_c_space(ref_cam_base, c_ref_cam_base);
+plot_c_space(ref_cam_base, c_ref_cam_base, Graphics.c_space);
 
-% figure settings
+% enable grid lines
 grid on;
 grid minor;
-axis 'equal';
-title('Viewing frustum plane (2D)');
 
+% axes size
+axis 'equal';
+
+% meta information
+title('Viewing frustum plane (2D)');
 legend(' Samples', ' Frustum (plane)', ' C-space', 'Location', 'southeast')
 
-set(gca, 'FontSize', 13);
-xlabel('X (m)', Opts.axis_text{:});
-ylabel('Y (m)', Opts.axis_text{:});
+% axes labels
+xlabel('X (m)', Graphics.axis.text{:});
+ylabel('Y (m)', Graphics.axis.text{:});
 
 hold off;
 
 % cleanup variables
-clear view_dist pattern_dim num_samples samples ref_cam_base c_ref_cam_base; 
+clear dist pattern_dim num_samples samples ref_cam_base c_ref_cam_base; 
 
 %% Plot clusters of sample points
 
