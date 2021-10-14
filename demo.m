@@ -22,7 +22,7 @@ trplot(T_optical_offset * Camera.T_cam_optical, Graphics.frame{:}, ...
     'frame', 'O', 'length', dist * 0.3, 'thick', 2, 'framelabeloffset', [1, 0]);
 
 % plot camera viewing frustum
-plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum_patch);
+plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum.patch);
 
 title('3D viewing frustum', 'FontSize', 14, 'FontWeight', 'bold');
 
@@ -99,55 +99,56 @@ hold off;
 % cleanup variables
 clear dist pattern_dim num_samples samples ref_cam_base c_ref_cam_base; 
 
-%% Plot clusters of sample points
+%% Plot clusters (sub-samples) of sample points
 
 % compute frustum points in the camera reference frame
-view_dist = 3; % meters
-[ref_cam_origin, ref_cam_base] = frustum3d(Camera, view_dist);
+dist = 3;
+[ref_cam_origin, ref_cam_base] = frustum3d(Camera, dist);
 
 % estimate calibration pattern's C-space
 c_ref_cam_base = c_space(ref_cam_base, Pattern.dim, 5e-2);
 
-% generate frustum plane samples (inverse Gaussian by rejection sampling)
+% generate frustum plane samples
 num_samples = 1000;
 samples = inv_norm2d(c_ref_cam_base, num_samples);
 
-% clusters = datasample(samples, 100, 'Replace', false);
-% clusters = uniquetol(samples, 1e-1, 'ByRows', true);
-
-% create clusters of samples (in the optical frame)
 num_clusters = 100;
-[~, clusters] = kmeans(samples, num_clusters, Opts.kmeans{:});
+% clusters = datasample(samples, num_clusters, 'Replace', false);
 
-figure('Name', '3D viewing frustum clusters', Opts.fig{:});
+[~, clusters] = kmeans(samples, num_clusters, Samples.kmeans{:});
+
+% === Plotting ===
+figure('Name', '3D viewing frustum clusters', Graphics.figure{:});
+
+view([45 30]);
 
 % plot camera optical frame
-trplot(Camera.T_cam_optical, Opts.frame{:}, ...
-       'length', view_dist * 0.7, 'frame', 'O');
+trplot(Camera.T_cam_optical, Graphics.frame{:}, 'frame', 'O', 'length', dist * 0.7);
 
 hold on;
 
 % plot camera frustum and image plane axes
-plot_frustum3d(ref_cam_origin, ref_cam_base);
-plot_image_axes(ref_cam_base);
+plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum.patch);
 
 % plot cluster centroids
-scatter3(clusters(:, 1), clusters(:, 2), clusters(:, 3), 24, Opts.scatter{:});
+scatter3(clusters(:, 1), clusters(:, 2), clusters(:, 3), 24, Graphics.scatter{:});
  
-% figure settings
+% enalbe grid lines
 grid on;
-view([45 30]);
-title('Clustered frustum points');
-axis([-1, 1, -1, 1, -1, 1] .* view_dist);
 
-set(gca, 'FontSize', 13);
-xlabel('X (m)', Opts.axis_text{:});
-ylabel('Y (m)', Opts.axis_text{:});
+% axes size
+axis([-1, 1, -1, 1, -1, 1] .* dist);
+
+% meta information
+title('Clustered frustum points');
+
+xlabel('X (m)', Graphics.axis.text{:});
+ylabel('Y (m)', Graphics.axis.text{:});
 
 hold off;
 
 % cleanup variables
-clear view_dist ref_cam_origin ref_cam_base num_clusters clusters ...
+clear dist ref_cam_origin ref_cam_base num_clusters clusters ...
       num_samples optical_samples c_ref_cam_base samples;
 
 %% Plot a calibration template and camera poses (3D)
