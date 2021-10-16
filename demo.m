@@ -1,7 +1,6 @@
-% create required objects and set default parameters
-setup;
-
 %% Camera viewing frustum (3D)
+
+setup;
 
 % compute frustum points in the camera reference frame
 dist = 1;
@@ -11,51 +10,62 @@ dist = 1;
 figure('Name', 'Camera viewing frustum', Graphics.figure{:});
 
 % plot camera optical frame
-trplot(Camera.T_cam_ref, Graphics.frame{:}, 'frame', 'C', 'length', dist * 0.7);
+trplot(Camera.T_cam_ref, Graphics.frame{:}, 'frame', 'C', 'length', dist * 0.75);
 
 hold on;
 
-% shift optical frame for visual purposes
+% plot optical frame (shifted for visual purposes)
 T_optical_offset = transl(-0.5, -0.5, 0.5);
 
 trplot(T_optical_offset * Camera.T_cam_optical, Graphics.frame{:}, ...
-    'frame', 'O', 'length', dist * 0.3, 'thick', 2, 'framelabeloffset', [1, 0]);
+    'length', dist * 0.5, 'notext');
 
 % plot camera viewing frustum
-plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum.patch);
+plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum);
 
-title('3D viewing frustum', 'FontSize', 14, 'FontWeight', 'bold');
+hold off;
 
-% axes labels
-xlabel('X (m)', Graphics.axis.text{:});
-ylabel('Y (m)', Graphics.axis.text{:});
-zlabel('Z (m)', Graphics.axis.text{:});
+view([50 10]);
 
-% axes size and shape
-axis 'square';
-axis([-1, 1, -1, 1, -1, 1] .* dist);
+% title('3D viewing frustum');
+
+xlabel('{\it X} [m]', Graphics.axis.labels{:});
+ylabel('{\it Y} [m]', Graphics.axis.labels{:});
+zlabel('{\it Z} [m]', Graphics.axis.labels{:});
 
 % enable axes grid lines ('on', 'off', 'minor')
 grid on;
 
-% disable current axes minor ticks
-set(gca, 'XMinorTick', 'off', 'YMinorTick', 'off', 'ZMinorTick', 'off');
+% axes range
+axis([-1, 1, -1, 1, -1, 1] .* dist);
 
-% setup minor and major ticks of the axes
+% axes minor and major ticks
+set(gca, 'XTick', -dist:1:dist);
+set(gca, 'YTick', -dist:1:dist);
+set(gca, 'ZTick', -dist:1:dist);
+
+% workaround to set axes minor ticks
 Axes = gca;
-Axes.XAxis.TickValues = -dist:0.5:dist;
-Axes.YAxis.TickValues = -dist:0.5:dist;
-Axes.ZAxis.TickValues = -dist:0.5:dist;
+minor_ticks = -dist:0.25:dist;
+Axes.XAxis.MinorTickValues = minor_ticks;
+Axes.YAxis.MinorTickValues = minor_ticks;
+Axes.ZAxis.MinorTickValues = minor_ticks;
 
-% set viewing angle
-view([47 18]); 
+% export figure
+% set(gcf, 'Color', 'none'); % transparent background
+set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
 
-hold off;
+export_fig('images/3d_camera_viewing_frustum.pdf', '-q101', '-painters', '-transparent');
+% export_fig('images/example.png', '-r300', '-painters', '-transparent');
 
-% cleanup variables
-clear ref_cam_base ref_cam_origin dist T_optical_offset Axes;
+disp('Done.');
+
+close;
+clear variables;
 
 %% Camera viewing frustum (2D)
+
+setup;
 
 % compute viewing frustum points (in the camera reference frame)
 dist = 1;
@@ -69,53 +79,67 @@ num_samples = 500;
 samples = inv_norm2d(c_ref_cam_base, num_samples);
 
 % === Plotting ===
-figure('Name', 'Viewing frustum plane', Graphics.figure{:});
+figure('Name', 'Viewing frustum C-space', Graphics.figure{:});
 
 % plot sample points
-scatter(samples(:, 2), samples(:, 3), 21, Graphics.scatter{:});
+scatter(samples(:, 2), samples(:, 3), 24, Graphics.scatter{:});
 
 hold on;
 
 % plot C-space boundaries
 plot_c_space(ref_cam_base, c_ref_cam_base, Graphics.c_space);
 
+hold off;
+
+axis([-0.7 0.7 -0.5 0.5]);
+axis 'equal'
+
 % enable grid lines
 grid on;
 grid minor;
 
-% axes size
-axis 'equal';
+set(gca, 'YTick', [-0.5, 0, 0.5]);
+
+Axes = gca; % workaround to set minor ticks
+Axes.YAxis.MinorTickValues = -0.5:0.1:0.5;
 
 % meta information
-title('Viewing frustum plane (2D)');
-legend(' Samples', ' Frustum (plane)', ' C-space', 'Location', 'southeast')
+% title('Viewing frustum plane (2D)');
+legend(' Samples', ' Frustum (base)', ' C-space', ...
+       'Location', 'bestoutside', 'EdgeColor', 'black', 'FontSize', 12);
 
 % axes labels
-xlabel('X (m)', Graphics.axis.text{:});
-ylabel('Y (m)', Graphics.axis.text{:});
+xlabel('{\it X} [m]', Graphics.axis.labels{:});
+ylabel('{\it Y} [m]', Graphics.axis.labels{:});
 
-hold off;
+set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
+export_fig('images/frustum_base_c_space_2d.pdf', '-q101', '-painters', '-transparent');
 
-% cleanup variables
-clear dist pattern_dim num_samples samples ref_cam_base c_ref_cam_base; 
+disp('Done.');
+
+% close;
+clear variables;
 
 %% Plot clusters (sub-samples) of sample points
 
+setup;
+
 % compute frustum points in the camera reference frame
-dist = 3;
+dist = 1;
 [ref_cam_origin, ref_cam_base] = frustum3d(Camera, dist);
 
 % estimate calibration pattern's C-space
 c_ref_cam_base = c_space(ref_cam_base, Pattern.dim, 5e-2);
 
 % generate frustum plane samples
-num_samples = 1000;
+num_samples = 2000;
 samples = inv_norm2d(c_ref_cam_base, num_samples);
 
-num_clusters = 100;
-% clusters = datasample(samples, num_clusters, 'Replace', false);
-
+num_clusters = 500;
 [~, clusters] = kmeans(samples, num_clusters, Samples.kmeans{:});
+
+num_samples = 100;
+clusters = datasample(clusters, num_samples, 'Replace', false);
 
 % === Plotting ===
 figure('Name', '3D viewing frustum clusters', Graphics.figure{:});
@@ -123,16 +147,19 @@ figure('Name', '3D viewing frustum clusters', Graphics.figure{:});
 view([45 30]);
 
 % plot camera optical frame
-trplot(Camera.T_cam_optical, Graphics.frame{:}, 'frame', 'O', 'length', dist * 0.7);
+trplot(Camera.T_cam_optical, Graphics.frame{:}, ...
+       'framelabel', 'O', 'length', dist * 0.7);
 
 hold on;
 
 % plot camera frustum and image plane axes
-plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum.patch);
+plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum);
 
 % plot cluster centroids
 scatter3(clusters(:, 1), clusters(:, 2), clusters(:, 3), 24, Graphics.scatter{:});
  
+hold off;
+
 % enalbe grid lines
 grid on;
 
@@ -142,14 +169,14 @@ axis([-1, 1, -1, 1, -1, 1] .* dist);
 % meta information
 title('Clustered frustum points');
 
-xlabel('X (m)', Graphics.axis.text{:});
-ylabel('Y (m)', Graphics.axis.text{:});
+xlabel('{\it X} [m]', Graphics.axis.labels{:});
+ylabel('{\it Y} [m]', Graphics.axis.labels{:});
+ylabel('{\it Z} [m]', Graphics.axis.labels{:});
 
-hold off;
+set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
+export_fig('images/frustum_c_space_3d.pdf', '-q101', '-painters', '-transparent');
 
-% cleanup variables
-clear dist ref_cam_origin ref_cam_base num_clusters clusters ...
-      num_samples optical_samples c_ref_cam_base samples;
+clear variables;
 
 %% Plot a calibration template and camera poses (3D)
 

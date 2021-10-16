@@ -2,16 +2,25 @@ clear all;
 close all;
 clc;
 
-disp('Setting up parameters ...');
+%% Add local paths
 
-%% Add paths
-
-addpath(genpath('plotting'), genpath('sampling'), genpath('frustum'), genpath('utility'));
+addpath(genpath('plotting'), ...
+        genpath('sampling'), ...
+        genpath('frustum'), ...
+        genpath('utility'));
 
 %% Set default plotting options
 
-DEFAULT_FONT_SIZE = 13;
+reset(groot); % reset all graphic setting made previously
+
+DEFAULT_FONT_SIZE = 18;
 DEFAULT_FONT_NAME = 'Helvetica'; % see listfonts
+
+set(groot, 'defaultAxesLineWidth', 1);
+set(groot, 'defaultLineLineWidth', 2.0);
+
+set(groot, 'defaultAxesUnits', 'normalized');
+set(groot, 'defaultAxesFontUnits', 'points');
 
 set(groot, 'defaultAxesFontWeight', 'bold');
 set(groot, 'defaultAxesFontSize', DEFAULT_FONT_SIZE);
@@ -22,40 +31,44 @@ set(groot, 'defaultAxesYColor', [0, 0.6, 0]);
 set(groot, 'defaultAxesZColor', [0, 0, 0.8]);
 
 set(groot, 'defaultAxesGridAlpha', 0.15);
-set(groot, 'defaultAxesGridColor', [0.15, 0.15, 0.15]);
 set(groot, 'defaultAxesGridLineStyle', '-');
-
-set(groot, 'defaultAxesLineWidth', 1);
+set(groot, 'defaultAxesGridColor', [0.15, 0.15, 0.15]);
 
 set(groot, 'defaultAxesMinorGridAlpha', 0.25);
 set(groot, 'defaultAxesMinorGridLineStyle', ':');
 set(groot, 'defaultAxesMinorGridColor', [0.1, 0.1, 0.1]);
 
-set(groot, 'defaultAxesTickLength', [0.01, 0.025]);
+set(groot, 'defaultAxesXMinorTick', 'on');
+set(groot, 'defaultAxesYMinorTick', 'on');
+set(groot, 'defaultAxesZMinorTick', 'on');
+
+set(groot, 'defaultAxesXMinorGrid', 'off');
+set(groot, 'defaultAxesYMinorGrid', 'off');
+set(groot, 'defaultAxesZMinorGrid', 'off');
+
+set(groot, 'defaultAxesTickLength', [0.01, 0.05]);
 
 set(groot, 'defaultTextFontSize', DEFAULT_FONT_SIZE);
 set(groot, 'defaultTextFontName', DEFAULT_FONT_NAME);
+set(groot, 'defaultTextFontUnits', 'points');
 
 set(groot, 'defaultFigureRenderer', 'painters');
 
-set(groot, 'defaultLineLineWidth', 2.0);
-
 set(groot, 'defaultFigureColor', 'white');
-set(groot, 'defaultFigureWindowStyle', 'docked');
+set(groot, 'defaultFigureWindowStyle', 'normal');
+set(groot, 'defaultFigurePaperPositionMode', 'auto');
+
+set(groot, 'defaultAxesSortMethod', 'ChildOrder');
 
 clear DEFAULT_FONT_NAME DEFAULT_FONT_SIZE;
 
 %% Other graphics options
 
 Graphics.figure = {};
-Graphics.axis.text = {};
+Graphics.axis.labels = {};
 
-Graphics.frame = {'thick', 3, 'rgb', 'framelabeloffset', [0.05, 0.05], ...
-                  'text_opts', {'FontWeight', 'bold'}};
-
-Graphics.scatter = {'filled', 'Marker', 'o', ...
-                    'MarkerEdgeColor', 'k', 'MarkerEdgeAlpha', 0.9, ...
-                    'MarkerFaceColor', [0 .75 .75], 'MarkerFaceAlpha', 0.3};
+Graphics.frame = {'rgb', 'thick', 4, 'text_opts', {'FontWeight', 'bold'}, ...
+                  'framelabeloffset', [0.05, 0.05], 'perspective'};
                 
 Graphics.frustum.patch = {'FaceColor', '#4DBEEE', 'FaceAlpha', 0.1, ...
                           'EdgeColor', '#4DBEEE', 'EdgeAlpha', 0.7, ...
@@ -64,13 +77,17 @@ Graphics.frustum.patch = {'FaceColor', '#4DBEEE', 'FaceAlpha', 0.1, ...
 Graphics.frustum.frame = {'thick', 1.75, 'rgb', 'notext', 'text_opts', {'FontSize', 7}};
 
 Graphics.frustum.near_plane = {'FaceColor', '#A2142F', 'FaceAlpha', 0.1, ...
-                               'EdgeColor', '#A2142F', 'EdgeAlpha', 0.3, ...
+                               'EdgeColor', '#A2142F', 'EdgeAlpha', 0.75, ...
                                'LineWidth', 1.2};
+                           
+Graphics.scatter = {'filled', 'Marker', 'o', ...
+                    'MarkerEdgeColor', 'k', 'MarkerEdgeAlpha', 0.6, ...
+                    'MarkerFaceColor', [0 .75 .75], 'MarkerFaceAlpha', 0.5};
 
 Graphics.c_space.opts = {'FaceColor', 'cyan', 'FaceAlpha', 0.01, 'EdgeColor', 'red', ...
                          'EdgeAlpha', 0.7, 'LineWidth', 3};
     
-Graphics.c_space.c_opts = {'FaceColor', 'cyan', 'FaceAlpha', 0.125, ...
+Graphics.c_space.c_opts = {'FaceColor', 'cyan', 'FaceAlpha', 0.05, ...
                            'EdgeColor', 'green', 'EdgeAlpha', 0.7, 'LineWidth', 3};
 
 Graphics.pattern.patch.black = {'FaceColor', 'black', 'FaceAlpha', 0.85, ...
@@ -110,6 +127,7 @@ Pattern.dim = [297, 210] * 1e-3;
 Pattern.T_ref_frame = rpy2tr(90, 0, 90);
 
 %% Sampling options
+
 Samples.kmeans = {'Distance', 'sqeuclidean', 'Display', 'off', ...
                   'Replicates', 100, 'MaxIter', 100, 'OnlinePhase', 'off'};
               
@@ -133,6 +151,20 @@ Samples.num_sub_samples = 200;
 % Exporting
 % print('img/example', '-dpng', '-r300');
 % print('img/example', '-deps2');
+% print -depsc2 img/example.eps
 
 % Show factory graphics settings
 % get(groot,'factory')
+
+% set minor ticks
+% Axes = gca; % workaround to set minor ticks
+% Axes.XAxis.MinorTickValues = [...];
+
+% set major ticks
+% set(gca, 'XTick', [...]);
+
+% transparent background
+% set(gcf, 'Color', 'none');
+
+%% Display message
+disp('Parameters have been set! Ready to create a masterpiece!!!');
