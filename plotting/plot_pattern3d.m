@@ -42,5 +42,5 @@ function [] = plot_pattern3d(Pattern, T, scale, opts)
     patch(white4(:, 1), white4(:, 2), white4(:, 3), 1, opts.patch.white{:});
     
     % plot pattern's frame
-    trplot(T, opts.frame{:}, 'length', 0.2 * scale);
+    trplot(T, opts.frame{:}, 'thick', 3, 'length', 0.2 * scale);
 end

@@ -16,9 +16,9 @@ function [] = plot_camera3d(id, Camera, view_dist, T, opts)
     base = tf_points3d(base, T);
     
     % plot the frustum in the posture
-    plot_frustum3d(origin, base, opts.patch);
+    plot_frustum3d(origin, base, opts);
     
     % plot the frustum's optical frame
     trplot(T * Camera.T_cam_optical, opts.frame{:}, ...
-        'frame', num2str(id), 'length', view_dist * 0.75);
+        'frame', num2str(id), 'thick', 3, 'length', view_dist * 0.75);
 end

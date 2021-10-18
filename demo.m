@@ -120,7 +120,7 @@ disp('Done.');
 % close;
 clear variables;
 
-%% Plot clusters (sub-samples) of sample points
+%% Plot clusters (sub-samples) of sample points (3D)
 
 setup;
 
@@ -163,11 +163,9 @@ hold off;
 % enalbe grid lines
 grid on;
 
-% axes size
 axis([-1, 1, -1, 1, -1, 1] .* dist);
 
-% meta information
-title('Clustered frustum points');
+% title('Clustered frustum points');
 
 xlabel('{\it X} [m]', Graphics.axis.labels{:});
 ylabel('{\it Y} [m]', Graphics.axis.labels{:});
@@ -176,45 +174,57 @@ ylabel('{\it Z} [m]', Graphics.axis.labels{:});
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
 export_fig('images/frustum_c_space_3d.pdf', '-q101', '-painters', '-transparent');
 
+disp('Done');
+
+close;
 clear variables;
 
 %% Plot a calibration template and camera poses (3D)
 
-figure('Name', 'Clustered frustum samples', Graphics.figure{:});
+setup;
 
-view([45 30]);
+figure('Name', 'Camera and template setup', Graphics.figure{:});
+
+view([145 14]);
 
 % plot camera reference frame
-trplot(Camera.T_cam_ref, Graphics.frame{:}, 'frame', 'C');
+trplot(Camera.T_cam_ref, Graphics.frame{:}, 'framelabel', 'C');
 
 hold on;
 
-T_pattern = rt2tr(rpy2r(0, 0, 0), [0.75 0 1]);
-plot_pattern3d(Pattern, T_pattern, 2, Graphics.pattern);
+T_pattern = rt2tr(rpy2r(0, 0, 0), [0.5 0 1]);
+plot_pattern3d(Pattern, T_pattern, 2.5, Graphics.pattern);
 
 % plot camera poses (as pyramids with axes)
 num_cameras = 1;
 
+dist = 1.75;
+
 for idx = 1:num_cameras
     R = rotz(180);
-    T = rt2tr(R, [3, 0, 1]);
+    T = rt2tr(R, [1.75, 0, 1]);
     plot_camera3d(idx, Camera, 0.5, T, Graphics.frustum);
 end
 
-% axes size
-axis([-1, 4, -3, 3, -3, 3]);
+axis([-1, 2, -1, 2, 0, 2]);
 
-% meta information
-title('Camera - pattern setting');
+grid on;
 
-xlabel('X (m)', Graphics.axis.text{:});
-ylabel('Y (m)', Graphics.axis.text{:});
-zlabel('Z (m)', Graphics.axis.text{:});
+% title('Camera - pattern setting');
+
+xlabel('{\it X} [m]', Graphics.axis.labels{:});
+ylabel('{\it Y} [m]', Graphics.axis.labels{:});
+zlabel('{\it Z} [m]', Graphics.axis.labels{:});
 
 hold off;
 
-% cleanup variables
-clear idx R T num_cameras T_pattern;
+set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
+export_fig('images/camera_pattern_setup3d.pdf', '-q101', '-painters', '-transparent');
+
+disp('Done');
+
+close;
+clear variables;
 
 %% Generate 6D poses of the calibration template
 
