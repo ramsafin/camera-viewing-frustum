@@ -228,6 +228,8 @@ clear variables;
 
 %% Generate 6D poses of the calibration template
 
+setup;
+
 poses = sample_poses6d(Camera, Pattern, Samples);
 
 % === Plotting ===
@@ -252,8 +254,8 @@ axis([-1, 1, -1, 1, -1, 1] .* 0.9);
 % meta information
 title('Clustered frustum points');
 
-xlabel('X (m)', Graphics.axis.text{:});
-ylabel('Y (m)', Graphics.axis.text{:});
+xlabel('X (m)', Graphics.axis.labels{:});
+ylabel('Y (m)', Graphics.axis.labels{:});
 
 hold off;
 
@@ -265,12 +267,10 @@ hold off;
 % === Plotting ===
 figure('Name', 'Clustered frustum samples', Graphics.figure{:});
 
-view([-100 5]);
+view([-135 20]);
 
-title('Pattern poses 3D');
-
-xlabel('X (m)', Graphics.axis.text{:});
-ylabel('Y (m)', Graphics.axis.text{:});
+xlabel('X (m)', Graphics.axis.labels{:});
+ylabel('Y (m)', Graphics.axis.labels{:});
 
 grid on;
 
@@ -283,7 +283,7 @@ for idx = 1:size(poses, 1)
     hold on;
     
     % frustum and image axes
-    plot_frustum3d(far_origin, far_base, Graphics.frustum.patch);
+    plot_frustum3d(far_origin, far_base, Graphics.frustum);
     
     % near plane
     patch(near_base(:, 1), near_base(:, 2), near_base(:, 3), ...
@@ -299,12 +299,14 @@ for idx = 1:size(poses, 1)
     
     drawnow;
     hold off;
-    pause(.3);
+    pause(.2);
 end
 
-clear T near_base far_origin far_base cam_height idx;
+clear variables;
 
 %% Output calibration template poses to a file
+
+setup;
 
 % File name structure:
 % 1. poses
@@ -338,7 +340,7 @@ for idx=1:50
     disp('<=== Finished');
 end
 
-clear idx fmt_filename filename num_samples poses;
+clear variables;
 
 %% Q: cannot understand how this sequence helps to spread the angles
 N = 16; % number of samples
