@@ -55,12 +55,12 @@ Axes.ZAxis.MinorTickValues = minor_ticks;
 % set(gcf, 'Color', 'none'); % transparent background
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
 
-export_fig('images/3d_camera_viewing_frustum.pdf', '-q101', '-painters', '-transparent');
+% export_fig('images/3d_camera_viewing_frustum.pdf', '-q101', '-painters', '-transparent');
 % export_fig('images/example.png', '-r300', '-painters', '-transparent');
 
 disp('Done.');
 
-close;
+% close;
 clear variables;
 
 %% Camera viewing frustum (2D)
@@ -82,6 +82,8 @@ samples = inv_norm2d(c_ref_cam_base, num_samples);
 figure('Name', 'Viewing frustum C-space', Graphics.figure{:});
 
 % plot sample points
+% subsample points - from unifrom distribution
+samples = datasample(samples, round(num_samples * 0.7), 'Replace', false);
 scatter(samples(:, 2), samples(:, 3), 24, Graphics.scatter{:});
 
 hold on;
@@ -113,7 +115,7 @@ xlabel('{\it X} [m]', Graphics.axis.labels{:});
 ylabel('{\it Y} [m]', Graphics.axis.labels{:});
 
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
-export_fig('images/frustum_base_c_space_2d.pdf', '-q101', '-painters', '-transparent');
+% export_fig('images/frustum_base_c_space_2d.pdf', '-q101', '-painters', '-transparent');
 
 disp('Done.');
 
@@ -162,6 +164,7 @@ hold off;
 
 % enalbe grid lines
 grid on;
+% TODO: disable minor grid
 
 axis([-1, 1, -1, 1, -1, 1] .* dist);
 
@@ -172,11 +175,11 @@ ylabel('{\it Y} [m]', Graphics.axis.labels{:});
 ylabel('{\it Z} [m]', Graphics.axis.labels{:});
 
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
-export_fig('images/frustum_c_space_3d.pdf', '-q101', '-painters', '-transparent');
+% export_fig('images/frustum_c_space_3d.pdf', '-q101', '-painters', '-transparent');
 
 disp('Done');
 
-close;
+% close;
 clear variables;
 
 %% Plot a calibration template and camera poses (3D)
@@ -219,11 +222,11 @@ zlabel('{\it Z} [m]', Graphics.axis.labels{:});
 hold off;
 
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
-export_fig('images/camera_pattern_setup3d.pdf', '-q101', '-painters', '-transparent');
+% export_fig('images/camera_pattern_setup3d.pdf', '-q101', '-painters', '-transparent');
 
 disp('Done');
 
-close;
+% close;
 clear variables;
 
 %% Generate 6D poses of the calibration template
@@ -238,18 +241,21 @@ figure('Name', 'Clusters', Graphics.figure{:});
 view([45 30]);
 
 % plot camera optical frame
-trplot(Camera.T_cam_optical, Graphics.frame{:}, 'frame', 'O', 'length', 0.7);
+trplot(Camera.T_cam_optical, Graphics.frame{:}, 'frame', 'O', 'length', 1);
 
 hold on;
 
 % plot cluster centroids
 scatter3(poses(:, 1), poses(:, 2), poses(:, 3), 24, Graphics.scatter{:});
 
+% [ref_cam_origin, ref_cam_base] = frustum3d(Camera, 0.8);
+% plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum);
+
 % enable grid lines
 grid on;
 
 % axes size
-axis([-1, 1, -1, 1, -1, 1] .* 0.9);
+axis([-1, 1, -1, 1, -1, 1] .* 1.2);
 
 % meta information
 title('Clustered frustum points');
@@ -313,9 +319,10 @@ setup;
 % 2. view distance range
 % 3. number of samples
 % 4. index
-% Ex.: poses_0.5_to_0.75cm_200_1.csv
+% File name template: poses_{near}_{close}_{mean dist}_{num of samples}_{index}.csv
+% Ex.: poses_0.5_0.75_0.65_100_1.csv
 
-fmt_filename = "data/%d/poses_%.2f_to_%.2fm_%d_%d.csv";
+fmt_filename = "data/%d/poses_%.2f_to_%.2f_%.4f_%d_%d.csv";
 
 % == Overried pose generation params ===
 Samples.density = 100;
@@ -326,17 +333,23 @@ Samples.yaw_range = 5:3:45;
 Samples.roll_range = 0:3:15;
 Samples.pitch_range = 5:3:45;
 
-Samples.num_sub_samples = 200;
+Samples.num_sub_samples = 25;
 
-for idx=1:50
+NUM_ITERATIONS = 1; % i.e. number of datasets to generate
+
+for idx=1:NUM_ITERATIONS
     fprintf('===> Iteration %d\n', idx);
     poses = sample_poses6d(Camera, Pattern, Samples);
     num_samples = size(poses, 1);
     
-    filename = sprintf(fmt_filename, Samples.num_sub_samples, ...
-        Samples.dist_min, Samples.dist_max, num_samples, idx);
+    mean_dist = avg_dist_plane(poses, 1, 0, 0, 0);
     
-    writematrix(poses, filename, 'FileType', 'text', 'Encoding', 'UTF-8');
+    filename = sprintf(fmt_filename, Samples.num_sub_samples, ...
+        Samples.dist_min, Samples.dist_max, mean_dist, num_samples, idx);
+    
+    output = [{'X','Y','Z','R','P','Y'}; num2cell(poses)];
+    writecell(output, filename);
+
     disp('<=== Finished');
 end
 

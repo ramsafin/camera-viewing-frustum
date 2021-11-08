@@ -1,6 +1,5 @@
 function [dist] = avg_dist(points, v1, v2)
-%mean_dist.m Computes the average Euclidean distance of all the points 
-%            to the line.
+%mean_dist.m Computes the average Euclidean distance of all the points to the line.
 % 
 % === Inputs ===
 % points        an array of 2D or 3D points (size: Nx2 or Nx3)
