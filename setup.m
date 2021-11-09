@@ -129,15 +129,15 @@ Pattern.T_ref_frame = rpy2tr(90, 0, 90);
 %% Sampling options
 
 Samples.kmeans = {'Distance', 'sqeuclidean', 'Display', 'off', ...
-                  'Replicates', 100, 'MaxIter', 100, 'OnlinePhase', 'off'};
+                  'Replicates', 50, 'MaxIter', 100, 'OnlinePhase', 'off'};
               
 Samples.density = 100;
 Samples.dist_min = 0.45;
 Samples.dist_max = 0.75;
 
-Samples.roll_range = 0:5:15;
-Samples.pitch_range = 5:3:70;
-Samples.yaw_range = 5:3:70;
+Samples.roll_range = 0:3:15;
+Samples.pitch_range = 5:3:45;
+Samples.yaw_range = 5:3:45;
 
 Samples.cluster_enabled = false;
 Samples.num_clusters = 800;

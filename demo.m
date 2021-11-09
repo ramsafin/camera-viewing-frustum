@@ -322,11 +322,11 @@ setup;
 % File name template: poses_{near}_{close}_{mean dist}_{num of samples}_{index}.csv
 % Ex.: poses_0.5_0.75_0.65_100_1.csv
 
-fmt_filename = "data/%d/poses_%.2f_to_%.2f_%.4f_%d_%d.csv";
+FMT_FILENAME = "data/%d/poses_%.2f_%.2f_%.4f_%d_%d.csv";
 
-% == Overried pose generation params ===
+% == Override pose generation params ===
 Samples.density = 100;
-Samples.dist_min = 0.45;
+Samples.dist_min = 0.5;
 Samples.dist_max = 0.75;
 
 Samples.yaw_range = 5:3:45;
@@ -335,7 +335,7 @@ Samples.pitch_range = 5:3:45;
 
 Samples.num_sub_samples = 25;
 
-NUM_ITERATIONS = 1; % i.e. number of datasets to generate
+NUM_ITERATIONS = 50; % i.e. number of datasets to generate
 
 for idx=1:NUM_ITERATIONS
     fprintf('===> Iteration %d\n', idx);
@@ -344,7 +344,7 @@ for idx=1:NUM_ITERATIONS
     
     mean_dist = avg_dist_plane(poses, 1, 0, 0, 0);
     
-    filename = sprintf(fmt_filename, Samples.num_sub_samples, ...
+    filename = sprintf(FMT_FILENAME, Samples.num_sub_samples, ...
         Samples.dist_min, Samples.dist_max, mean_dist, num_samples, idx);
     
     output = [{'X','Y','Z','R','P','Y'}; num2cell(poses)];
@@ -352,6 +352,61 @@ for idx=1:NUM_ITERATIONS
 
     disp('<=== Finished');
 end
+
+clear variables;
+
+%% TODO
+
+% 1. 2D plot with shadowed pattern location on the image (sort of heatmap)
+
+%% Bar plot of the mean pattern-to-camera distance
+setup;
+
+DATASET_SIZE = 25;
+FMT_FOLDER = 'data/%d';
+
+filenames = {dir(sprintf(FMT_FOLDER, DATASET_SIZE)).name};
+num_files = size(filenames, 2);
+
+dist_stats = zeros(1, num_files);
+
+% see: https://stackoverflow.com/questions/12643009/regular-expression-for-floating-point-numbers
+expr = '(\d*[.])?\d+';
+
+% collect statistics
+for idx=1:num_files
+    matches = regexp(filenames{idx}, expr, 'match');
+    
+    if ~isempty(matches) && size(matches, 2) == 5 % we have 5 parameters in the filename
+       dist_stats(idx) = str2double(matches(3));
+    end
+end
+
+% remove zero elements
+dist_stats = nonzeros(dist_stats);
+
+% compute stats
+dist_mean = mean(dist_stats);
+dist_stddev = std(dist_stats);
+
+% plotting
+figure('Name', 'Mean distances', Graphics.figure{:});
+
+fig = gcf;
+fig.Position(3:4) = [600, 400];
+
+grid on;
+
+set(gca, 'XColor', 'k');
+set(gca, 'YColor', 'k');
+% set(gca, 'TickLength', [0.02, 0.07]);
+
+ylabel('Pattern-to-camera distance [m]', Graphics.axis.labels{:});
+
+hold on;
+
+boxplot(dist_stats, 'Notch', 'on', 'Labels', ...
+        [sprintf('mean: %.4f [m], stddev: %.4f [m]', dist_mean, dist_stddev)]);
 
 clear variables;
 
