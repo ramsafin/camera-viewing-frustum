@@ -319,21 +319,24 @@ setup;
 % 2. view distance range
 % 3. number of samples
 % 4. index
-% File name template: poses_{near}_{close}_{mean dist}_{num of samples}_{index}.csv
-% Ex.: poses_0.5_0.75_0.65_100_1.csv
+% File name template: poses_{index}_{samples}_{near}_{close}_{mean dist}.csv
+% Ex.: poses_1_100_0.45_0.75_0.65.csv
 
-FMT_FILENAME = "data/%d/poses_%.2f_%.2f_%.4f_%d_%d.csv";
+FMT_FILENAME = "data/%d/poses_%d_%d_%.2f_%.2f_%.4f.csv";
 
 % == Override pose generation params ===
-Samples.density = 100;
-Samples.dist_min = 0.5;
+Samples.density = 200;
+Samples.dist_min = 0.45;
 Samples.dist_max = 0.75;
 
 Samples.yaw_range = 5:3:45;
 Samples.roll_range = 0:3:15;
 Samples.pitch_range = 5:3:45;
 
-Samples.num_sub_samples = 25;
+Samples.num_sub_samples = 500;
+
+% pre cleanup
+delete(sprintf('data/%d/*.csv', Samples.num_sub_samples));
 
 NUM_ITERATIONS = 50; % i.e. number of datasets to generate
 
@@ -344,8 +347,8 @@ for idx=1:NUM_ITERATIONS
     
     mean_dist = avg_dist_plane(poses, 1, 0, 0, 0);
     
-    filename = sprintf(FMT_FILENAME, Samples.num_sub_samples, ...
-        Samples.dist_min, Samples.dist_max, mean_dist, num_samples, idx);
+    filename = sprintf(FMT_FILENAME, Samples.num_sub_samples, idx, num_samples, ...
+                       Samples.dist_min, Samples.dist_max, mean_dist);
     
     output = [{'X','Y','Z','R','P','Y'}; num2cell(poses)];
     writecell(output, filename);
@@ -359,10 +362,10 @@ clear variables;
 
 % 1. 2D plot with shadowed pattern location on the image (sort of heatmap)
 
-%% Bar plot of the mean pattern-to-camera distance
+%% Error box plot of the mean pattern-to-camera distance
 setup;
 
-DATASET_SIZE = 25;
+DATASET_SIZE = 500;
 FMT_FOLDER = 'data/%d';
 
 filenames = {dir(sprintf(FMT_FOLDER, DATASET_SIZE)).name};
@@ -377,8 +380,8 @@ expr = '(\d*[.])?\d+';
 for idx=1:num_files
     matches = regexp(filenames{idx}, expr, 'match');
     
-    if ~isempty(matches) && size(matches, 2) == 5 % we have 5 parameters in the filename
-       dist_stats(idx) = str2double(matches(3));
+    if size(matches, 2) == 5 % we have 5 parameters in the filename
+       dist_stats(idx) = str2double(matches(5));
     end
 end
 
