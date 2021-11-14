@@ -322,38 +322,42 @@ setup;
 % File name template: poses_{index}_{samples}_{near}_{close}_{mean dist}.csv
 % Ex.: poses_1_100_0.45_0.75_0.65.csv
 
-FMT_FILENAME = "data/%d/poses_%d_%d_%.2f_%.2f_%.4f.csv";
+% FMT_FILENAME = "data/%d/poses_%d_%d_%.2f_%.2f_%.4f.csv";
+FMT_FILENAME = "data/%d/poses_%d_%d.csv";
 
 % == Override pose generation params ===
 Samples.density = 200;
 Samples.dist_min = 0.45;
-Samples.dist_max = 0.75;
+Samples.dist_max = 0.7;
 
 Samples.yaw_range = 5:3:45;
 Samples.roll_range = 0:3:15;
 Samples.pitch_range = 5:3:45;
 
-Samples.num_sub_samples = 500;
+num_samples = [25, 50:50:500];
 
-% pre cleanup
-delete(sprintf('data/%d/*.csv', Samples.num_sub_samples));
+for k=num_samples
+    Samples.num_sub_samples = k;
 
-NUM_ITERATIONS = 50; % i.e. number of datasets to generate
+    % pre cleanup
+    delete(sprintf('data/%d/*.csv', Samples.num_sub_samples));
 
-for idx=1:NUM_ITERATIONS
-    fprintf('===> Iteration %d\n', idx);
-    poses = sample_poses6d(Camera, Pattern, Samples);
-    num_samples = size(poses, 1);
-    
-    mean_dist = avg_dist_plane(poses, 1, 0, 0, 0);
-    
-    filename = sprintf(FMT_FILENAME, Samples.num_sub_samples, idx, num_samples, ...
-                       Samples.dist_min, Samples.dist_max, mean_dist);
-    
-    output = [{'X','Y','Z','R','P','Y'}; num2cell(poses)];
-    writecell(output, filename);
+    NUM_ITERATIONS = 100; % i.e. number of datasets to generate
 
-    disp('<=== Finished');
+    for idx=1:NUM_ITERATIONS
+        fprintf('===> Iteration %d\n', idx);
+        poses = sample_poses6d(Camera, Pattern, Samples);
+        num_samples = size(poses, 1);
+
+        mean_dist = avg_dist_plane(poses, 1, 0, 0, 0);
+
+        filename = sprintf(FMT_FILENAME, Samples.num_sub_samples, idx, num_samples);
+
+        output = [{'X','Y','Z','Roll','Pitch','Yaw'}; num2cell(poses)];
+        writecell(output, filename);
+
+        disp('<=== Finished');
+    end 
 end
 
 clear variables;
