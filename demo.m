@@ -25,7 +25,7 @@ plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum);
 
 hold off;
 
-view([50 10]);
+view([-165 20]);
 
 % title('3D viewing frustum');
 
@@ -52,10 +52,10 @@ Axes.YAxis.MinorTickValues = minor_ticks;
 Axes.ZAxis.MinorTickValues = minor_ticks;
 
 % export figure
-% set(gcf, 'Color', 'none'); % transparent background
+set(gcf, 'Color', 'none'); % transparent background
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
 
-% export_fig('images/3d_camera_viewing_frustum.pdf', '-q101', '-painters', '-transparent');
+export_fig('images/3d_camera_viewing_frustum.pdf', '-q101', '-painters', '-transparent');
 % export_fig('images/example.png', '-r300', '-painters', '-transparent');
 
 disp('Done.');
@@ -115,7 +115,7 @@ xlabel('{\it X} [m]', Graphics.axis.labels{:});
 ylabel('{\it Y} [m]', Graphics.axis.labels{:});
 
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
-% export_fig('images/frustum_base_c_space_2d.pdf', '-q101', '-painters', '-transparent');
+export_fig('images/frustum_base_c_space_2d.pdf', '-q101', '-painters', '-transparent');
 
 disp('Done.');
 
@@ -127,7 +127,7 @@ clear variables;
 setup;
 
 % compute frustum points in the camera reference frame
-dist = 1;
+dist = 0.7;
 [ref_cam_origin, ref_cam_base] = frustum3d(Camera, dist);
 
 % estimate calibration pattern's C-space
@@ -137,16 +137,16 @@ c_ref_cam_base = c_space(ref_cam_base, Pattern.dim, 5e-2);
 num_samples = 2000;
 samples = inv_norm2d(c_ref_cam_base, num_samples);
 
-num_clusters = 500;
-[~, clusters] = kmeans(samples, num_clusters, Samples.kmeans{:});
+% num_clusters = 500;
+% [~, clusters] = kmeans(samples, num_clusters, Samples.kmeans{:});
 
-num_samples = 100;
-clusters = datasample(clusters, num_samples, 'Replace', false);
+num_samples = 150;
+clusters = datasample(samples, num_samples, 'Replace', false);
 
 % === Plotting ===
 figure('Name', '3D viewing frustum clusters', Graphics.figure{:});
 
-view([45 30]);
+view([-160 6]);
 
 % plot camera optical frame
 trplot(Camera.T_cam_optical, Graphics.frame{:}, ...
@@ -162,7 +162,7 @@ scatter3(clusters(:, 1), clusters(:, 2), clusters(:, 3), 24, Graphics.scatter{:}
  
 hold off;
 
-% enalbe grid lines
+% enable grid lines
 grid on;
 % TODO: disable minor grid
 
@@ -172,10 +172,10 @@ axis([-1, 1, -1, 1, -1, 1] .* dist);
 
 xlabel('{\it X} [m]', Graphics.axis.labels{:});
 ylabel('{\it Y} [m]', Graphics.axis.labels{:});
-ylabel('{\it Z} [m]', Graphics.axis.labels{:});
+zlabel('{\it Z} [m]', Graphics.axis.labels{:});
 
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
-% export_fig('images/frustum_c_space_3d.pdf', '-q101', '-painters', '-transparent');
+export_fig('images/frustum_c_space_3d.pdf', '-q101', '-painters', '-transparent');
 
 disp('Done');
 
@@ -188,26 +188,21 @@ setup;
 
 figure('Name', 'Camera and template setup', Graphics.figure{:});
 
-view([145 14]);
+view([149 24]);
 
 % plot camera reference frame
 trplot(Camera.T_cam_ref, Graphics.frame{:}, 'framelabel', 'C');
 
 hold on;
 
-T_pattern = rt2tr(rpy2r(0, 0, 0), [0.5 0 1]);
-plot_pattern3d(Pattern, T_pattern, 2.5, Graphics.pattern);
+% T_pattern = rt2tr(rpy2r(0, 0, 0), [0.5 0 1]);
+
+plot_pattern3d(Pattern, rt2tr(rpy2r(10, 15, 30), [0.5 -0.3 1]), 1.5, Graphics.pattern);
+plot_pattern3d(Pattern, rt2tr(rpy2r(-10, -15, -5), [-0.4 0.1 1]), 1.5, Graphics.pattern);
+plot_pattern3d(Pattern, rt2tr(rpy2r(0, 15, 0), [0.1 0.1 1.5]), 1.5, Graphics.pattern);
 
 % plot camera poses (as pyramids with axes)
-num_cameras = 1;
-
-dist = 1.75;
-
-for idx = 1:num_cameras
-    R = rotz(180);
-    T = rt2tr(R, [1.75, 0, 1]);
-    plot_camera3d(idx, Camera, 0.5, T, Graphics.frustum);
-end
+plot_camera3d(1, Camera, 0.5, rt2tr(rotz(180), [1.75, 0, 1]), Graphics.frustum);
 
 axis([-1, 2, -1, 2, 0, 2]);
 
@@ -222,7 +217,7 @@ zlabel('{\it Z} [m]', Graphics.axis.labels{:});
 hold off;
 
 set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
-% export_fig('images/camera_pattern_setup3d.pdf', '-q101', '-painters', '-transparent');
+export_fig('images/camera_pattern_setup3d.pdf', '-q101', '-painters', '-transparent');
 
 disp('Done');
 
@@ -233,23 +228,26 @@ clear variables;
 
 setup;
 
+Samples.dist_min = 0.5;
+Samples.dist_max = 0.9;
+
 poses = sample_poses6d(Camera, Pattern, Samples);
 
 % === Plotting ===
 figure('Name', 'Clusters', Graphics.figure{:});
 
-view([45 30]);
+view([200 10]);
 
 % plot camera optical frame
-trplot(Camera.T_cam_optical, Graphics.frame{:}, 'frame', 'O', 'length', 1);
+trplot(Camera.T_cam_optical, Graphics.frame{:}, 'frame', 'O', 'length', 1.5);
 
 hold on;
 
-% plot cluster centroids
-scatter3(poses(:, 1), poses(:, 2), poses(:, 3), 24, Graphics.scatter{:});
+[ref_cam_origin, ref_cam_base] = frustum3d(Camera, 1);
+plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum);
 
-% [ref_cam_origin, ref_cam_base] = frustum3d(Camera, 0.8);
-% plot_frustum3d(ref_cam_origin, ref_cam_base, Graphics.frustum);
+% plot cluster centroids
+scatter3(poses(:, 1), poses(:, 2), poses(:, 3), 21, Graphics.scatter{:});
 
 % enable grid lines
 grid on;
@@ -258,12 +256,21 @@ grid on;
 axis([-1, 1, -1, 1, -1, 1] .* 1.2);
 
 % meta information
-title('Clustered frustum points');
+% title('Clustered frustum points');
 
-xlabel('X (m)', Graphics.axis.labels{:});
-ylabel('Y (m)', Graphics.axis.labels{:});
+xlabel('{\it X} [m]', Graphics.axis.labels{:});
+ylabel('{\it Y} [m]', Graphics.axis.labels{:});
+zlabel('{\it Z} [m]', Graphics.axis.labels{:});
 
 hold off;
+
+set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
+export_fig('images/frustum_pattern_poses3d.pdf', '-q101', '-painters', '-transparent');
+
+disp('Done');
+
+% close;
+clear variables;
 
 %% Plot 6D calibration template poses
 
@@ -436,3 +443,38 @@ S = flip(S);  % max ... min => min ... max
 disp(S);
 
 clear i p offset S N;
+
+
+%% Demo: reporjection error distribution
+setup;
+
+M = 50;
+N = 35;
+
+% means = 0.1 * randc(1, M);
+means = zeros(1, M);
+means(1) = 0.25;
+
+fig = figure();
+hold on;
+
+for idx=1:M
+    s = scatter(normrnd(means(idx), 0.1, 1, N), normrnd(means(idx), 0.1, 1, N), ...
+            '+', 'LineWidth', 0.9);
+    s.SizeData = 64;
+end
+
+grid on;
+
+hold off;
+
+% axes labels
+xlabel('{\it X} [px]', Graphics.axis.labels{:});
+ylabel('{\it Y} [px]', Graphics.axis.labels{:});
+
+set(gca, 'SortMethod', 'ChildOrder'); % suppress export warning
+export_fig('images/reprojection_error_dist.png', '-q100', '-r600', '-painters');
+
+clear variables;
+close;
+
